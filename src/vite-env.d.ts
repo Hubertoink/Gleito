@@ -8,6 +8,10 @@ interface GleitoApi {
   exportPdf: (html: string, suggestedName: string) => Promise<string | null>;
   getVersion: () => Promise<string>;
   openExternal: (url: string) => Promise<boolean>;
+  checkForAppUpdate: () => Promise<{ supported: boolean; started?: boolean; reason?: string }>;
+  downloadAppUpdate: () => Promise<{ supported: boolean; started?: boolean }>;
+  installAppUpdate: () => Promise<{ supported: boolean }>;
+  onUpdateStatus: (callback: (payload: unknown) => void) => () => void;
 }
 
 interface Window {

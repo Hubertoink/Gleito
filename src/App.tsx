@@ -28,9 +28,16 @@ type ToastState = {
   tone: 'success' | 'error' | 'info';
   actionLabel?: string;
   onAction?: () => void | Promise<void>;
+  persistent?: boolean;
 } | null;
 
 type ToastTone = NonNullable<ToastState>['tone'];
+type UpdateStatusPayload = {
+  state: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+  version?: string;
+  percent?: number;
+  message?: string;
+};
 
 const WEEKDAYS: Array<{ key: WeekdayKey; label: string }> = [
   { key: 'mon', label: 'Mo' },
@@ -53,19 +60,6 @@ function parseDuration(value: string): number {
   if (!match) return 0;
   const total = Number(match[2]) * 60 + Number(match[3]);
   return match[1] ? -total : total;
-}
-
-function compareVersions(left: string, right: string): number {
-  const leftParts = left.replace(/^v/, '').split('.').map((part) => Number.parseInt(part, 10) || 0);
-  const rightParts = right.replace(/^v/, '').split('.').map((part) => Number.parseInt(part, 10) || 0);
-  const maxLength = Math.max(leftParts.length, rightParts.length);
-  for (let index = 0; index < maxLength; index += 1) {
-    const leftPart = leftParts[index] ?? 0;
-    const rightPart = rightParts[index] ?? 0;
-    if (leftPart > rightPart) return 1;
-    if (leftPart < rightPart) return -1;
-  }
-  return 0;
 }
 
 function shiftMonth(key: string, delta: number): string {
@@ -108,6 +102,9 @@ export default function App() {
   const [toast, setToast] = useState<ToastState>(null);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [appVersion, setAppVersion] = useState('');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatusPayload | null>(null);
+  const manualUpdateCheckRef = useRef(false);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const todayMonth = keyForDate(new Date());
@@ -170,45 +167,62 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return;
-    if (toast.actionLabel) return;
+    if (toast.actionLabel || toast.persistent) return;
     const timeout = window.setTimeout(() => setToast(null), 3200);
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function checkForUpdates() {
-      if (!window.gleito) return;
-      try {
-        const currentVersion = await window.gleito.getVersion();
-        const response = await fetch('https://api.github.com/repos/Hubertoink/Gleito/releases/latest', {
-          headers: { Accept: 'application/vnd.github+json' }
-        });
-        if (!response.ok) return;
-        const latestRelease = (await response.json()) as { tag_name?: string; html_url?: string; name?: string };
-        const latestVersion = latestRelease.tag_name?.replace(/^v/, '') ?? '';
-        if (!latestVersion || cancelled) return;
-        if (compareVersions(latestVersion, currentVersion) > 0) {
-          setToast({
-            message: `Update ${latestVersion} verfügbar`,
-            tone: 'info',
-            actionLabel: 'Release öffnen',
-            onAction: () => {
-              if (latestRelease.html_url && window.gleito) {
-                void window.gleito.openExternal(latestRelease.html_url);
-              }
-              setToast(null);
-            }
-          });
-        }
-      } catch {
-        // stiller Fehlschlag, Update-Check soll die App nicht stoeren
+    if (!window.gleito) return;
+    void window.gleito.getVersion().then(setAppVersion);
+    const unsubscribe = window.gleito.onUpdateStatus((payload) => {
+      const next = payload as UpdateStatusPayload;
+      setUpdateStatus(next);
+      if (next.state === 'checking' && manualUpdateCheckRef.current) {
+        setToast({ message: 'Suche nach Updates ...', tone: 'info', persistent: true });
       }
-    }
-    void checkForUpdates();
-    return () => {
-      cancelled = true;
-    };
+      if (next.state === 'available') {
+        manualUpdateCheckRef.current = false;
+        setToast({
+          message: `Update ${next.version ?? ''} verfügbar`,
+          tone: 'info',
+          actionLabel: 'Jetzt laden',
+          onAction: async () => {
+            setToast({ message: 'Update wird geladen ...', tone: 'info', persistent: true });
+            await window.gleito?.downloadAppUpdate();
+          },
+          persistent: true
+        });
+      }
+      if (next.state === 'downloading') {
+        setToast({
+          message: `Update wird geladen${typeof next.percent === 'number' ? ` (${next.percent}%)` : ' ...'}`,
+          tone: 'info',
+          persistent: true
+        });
+      }
+      if (next.state === 'downloaded') {
+        manualUpdateCheckRef.current = false;
+        setToast({
+          message: `Update ${next.version ?? ''} bereit`,
+          tone: 'success',
+          actionLabel: 'Jetzt neu starten',
+          onAction: async () => {
+            await window.gleito?.installAppUpdate();
+          },
+          persistent: true
+        });
+      }
+      if (next.state === 'not-available' && manualUpdateCheckRef.current) {
+        manualUpdateCheckRef.current = false;
+        setToast({ message: 'Keine neue Version gefunden', tone: 'info' });
+      }
+      if (next.state === 'error') {
+        manualUpdateCheckRef.current = false;
+        setToast({ message: next.message || 'Update fehlgeschlagen', tone: 'error' });
+      }
+    });
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
@@ -287,8 +301,31 @@ export default function App() {
     setActiveMonth(next);
   }
 
-  function showToast(message: string, tone: ToastTone, actionLabel?: string, onAction?: () => void | Promise<void>) {
-    setToast({ message, tone, actionLabel, onAction });
+  async function triggerManualUpdateCheck() {
+    if (!window.gleito) {
+      showToast('Update-Suche nur in der Desktop-App verfügbar', 'info');
+      return;
+    }
+    manualUpdateCheckRef.current = true;
+    const result = await window.gleito.checkForAppUpdate();
+    if (!result.supported) {
+      manualUpdateCheckRef.current = false;
+      showToast('Update-Suche nur in installierten Versionen verfügbar', 'info');
+      return;
+    }
+    if (result.started === false) {
+      showToast('Update-Suche läuft bereits', 'info');
+    }
+  }
+
+  function showToast(
+    message: string,
+    tone: ToastTone,
+    actionLabel?: string,
+    onAction?: () => void | Promise<void>,
+    persistent = false
+  ) {
+    setToast({ message, tone, actionLabel, onAction, persistent });
   }
 
   function unlockArchiveMonth() {
@@ -414,9 +451,12 @@ export default function App() {
       {view === 'settings' ? (
         <SettingsPanel
           settings={settings}
+          appVersion={appVersion}
+          updateStatus={updateStatus}
           onChange={saveSettings}
           onExportBackup={exportBackup}
           onImportBackup={importBackup}
+          onCheckForUpdates={triggerManualUpdateCheck}
           onResetAllData={() => setShowResetModal(true)}
         />
       ) : (
@@ -796,15 +836,21 @@ function RemarkField({
 
 function SettingsPanel({
   settings,
+  appVersion,
+  updateStatus,
   onChange,
   onExportBackup,
   onImportBackup,
+  onCheckForUpdates,
   onResetAllData
 }: {
   settings: Settings;
+  appVersion: string;
+  updateStatus: UpdateStatusPayload | null;
   onChange: (settings: Settings) => Promise<void>;
   onExportBackup: () => Promise<void>;
   onImportBackup: () => Promise<void>;
+  onCheckForUpdates: () => Promise<void>;
   onResetAllData: () => void | Promise<void>;
 }) {
   const [showTrafficSettings, setShowTrafficSettings] = useState(false);
@@ -920,6 +966,25 @@ function SettingsPanel({
         <label className="check"><input type="checkbox" checked={settings.backgroundEnabled} onChange={(e) => update({ backgroundEnabled: e.currentTarget.checked })} /> Hintergrundbild anzeigen</label>
         <label className="check"><input type="checkbox" checked={settings.translucentSurfaces} onChange={(e) => update({ translucentSurfaces: e.currentTarget.checked })} /> Kacheltransparenz aktivieren</label>
         <label className="check"><input type="checkbox" checked={settings.highlightOpenPlannedDays} onChange={(e) => update({ highlightOpenPlannedDays: e.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
+      </div>
+
+      <div className="panel">
+        <h2>Updates</h2>
+        <p className="hint">Version {appVersion || '...'}</p>
+        <div className="backup-actions">
+          <button type="button" className="ghost-button" onClick={() => void onCheckForUpdates()}>
+            Nach Updates suchen
+          </button>
+        </div>
+        {updateStatus && updateStatus.state !== 'not-available' && (
+          <p className="hint">
+            {updateStatus.state === 'checking' && 'Suche läuft'}
+            {updateStatus.state === 'available' && `Update ${updateStatus.version ?? ''} gefunden`}
+            {updateStatus.state === 'downloading' && `Download ${updateStatus.percent ?? 0}%`}
+            {updateStatus.state === 'downloaded' && `Update ${updateStatus.version ?? ''} bereit`}
+            {updateStatus.state === 'error' && (updateStatus.message || 'Update fehlgeschlagen')}
+          </p>
+        )}
       </div>
     </section>
   );

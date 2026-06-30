@@ -1,6 +1,6 @@
 {
   "name": "gleito",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "Lokaler Gleitzeitnachweis als Desktop-App",
   "main": "dist-electron/main.cjs",
   "type": "module",
@@ -47,10 +47,17 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "artifactName": "Gleito-Setup-${version}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Hubertoink",
+      "repo": "Gleito",
+      "releaseType": "release"
     }
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
+    "electron-updater": "^6.8.9",
     "lucide-react": "^0.561.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

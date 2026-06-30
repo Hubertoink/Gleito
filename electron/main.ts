@@ -1,11 +1,55 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, shell, type OpenDialogOptions } from 'electron';
 import path from 'node:path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { autoUpdater } from 'electron-updater';
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 let mainWindow: BrowserWindow | null = null;
+let updateCheckInFlight = false;
 
 app.setPath('sessionData', path.join(app.getPath('userData'), 'session-data'));
+
+function sendUpdateStatus(payload: Record<string, unknown>) {
+  mainWindow?.webContents.send('update:status', payload);
+}
+
+function configureAutoUpdater() {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    updateCheckInFlight = true;
+    sendUpdateStatus({ state: 'checking' });
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    updateCheckInFlight = false;
+    sendUpdateStatus({ state: 'available', version: info.version });
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    updateCheckInFlight = false;
+    sendUpdateStatus({ state: 'not-available', version: info.version });
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    sendUpdateStatus({
+      state: 'downloading',
+      percent: Math.round(progress.percent),
+      bytesPerSecond: progress.bytesPerSecond
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    sendUpdateStatus({ state: 'downloaded', version: info.version });
+  });
+
+  autoUpdater.on('error', (error) => {
+    updateCheckInFlight = false;
+    sendUpdateStatus({ state: 'error', message: error?.message ?? 'Update fehlgeschlagen' });
+  });
+}
 
 function userDataPath(fileName: string): string {
   return path.join(app.getPath('userData'), fileName);
@@ -38,6 +82,7 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
+  configureAutoUpdater();
 
   ipcMain.handle('db:load', () => {
     const dbPath = userDataPath('gleitzettel.sqlite');
@@ -111,8 +156,28 @@ app.whenReady().then(async () => {
     await shell.openExternal(url);
     return true;
   });
+  ipcMain.handle('update:check', async () => {
+    if (!app.isPackaged) return { supported: false, reason: 'not-packaged' };
+    if (updateCheckInFlight) return { supported: true, started: false };
+    updateCheckInFlight = true;
+    void autoUpdater.checkForUpdates();
+    return { supported: true, started: true };
+  });
+  ipcMain.handle('update:download', async () => {
+    if (!app.isPackaged) return { supported: false, started: false };
+    await autoUpdater.downloadUpdate();
+    return { supported: true, started: true };
+  });
+  ipcMain.handle('update:install', () => {
+    if (!app.isPackaged) return { supported: false };
+    setImmediate(() => autoUpdater.quitAndInstall());
+    return { supported: true };
+  });
 
   await createWindow();
+  if (app.isPackaged) {
+    void autoUpdater.checkForUpdates();
+  }
 });
 
 app.on('window-all-closed', () => {

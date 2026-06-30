@@ -17,5 +17,16 @@ contextBridge.exposeInMainWorld('gleito', {
   exportPdf: async (html: string, suggestedName: string): Promise<string | null> =>
     ipcRenderer.invoke('pdf:export', html, suggestedName),
   getVersion: async (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
-  openExternal: async (url: string): Promise<boolean> => ipcRenderer.invoke('shell:openExternal', url)
+  openExternal: async (url: string): Promise<boolean> => ipcRenderer.invoke('shell:openExternal', url),
+  checkForAppUpdate: async (): Promise<{ supported: boolean; started?: boolean; reason?: string }> =>
+    ipcRenderer.invoke('update:check'),
+  downloadAppUpdate: async (): Promise<{ supported: boolean; started?: boolean }> =>
+    ipcRenderer.invoke('update:download'),
+  installAppUpdate: async (): Promise<{ supported: boolean }> =>
+    ipcRenderer.invoke('update:install'),
+  onUpdateStatus: (callback: (payload: unknown) => void): (() => void) => {
+    const listener = (_event: unknown, payload: unknown) => callback(payload);
+    ipcRenderer.on('update:status', listener);
+    return () => ipcRenderer.removeListener('update:status', listener);
+  }
 });
