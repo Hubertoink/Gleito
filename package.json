@@ -1,12 +1,13 @@
 {
   "name": "gleito",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Lokaler Gleitzeitnachweis als Desktop-App",
   "main": "dist-electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-runner.cjs",
     "build": "tsc -b && vite build && esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --outdir=dist-electron --out-extension:.js=.cjs --external:electron",
+    "dist:win": "npm run build && electron-builder --win nsis",
     "preview": "vite preview --host 127.0.0.1",
     "start": "npm run build && node scripts/run-electron.cjs",
     "test": "vitest run"
@@ -18,6 +19,36 @@
   ],
   "author": "",
   "license": "UNLICENSED",
+  "build": {
+    "appId": "de.hubertoink.gleito",
+    "productName": "Gleito",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "assets/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/Logo.ico",
+      "artifactName": "Gleito-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Gleito-Setup-${version}.${ext}"
+    }
+  },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
     "lucide-react": "^0.561.0",
@@ -33,6 +64,7 @@
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^31.7.7",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.27.2",
     "jsdom": "^27.3.0",
     "typescript": "^5.9.3",

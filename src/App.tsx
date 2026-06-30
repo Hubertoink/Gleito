@@ -26,6 +26,8 @@ import './styles.css';
 type ToastState = {
   message: string;
   tone: 'success' | 'error' | 'info';
+  actionLabel?: string;
+  onAction?: () => void | Promise<void>;
 } | null;
 
 type ToastTone = NonNullable<ToastState>['tone'];
@@ -53,8 +55,17 @@ function parseDuration(value: string): number {
   return match[1] ? -total : total;
 }
 
-function clampOpacity(value: number): number {
-  return Math.min(1, Math.max(0.4, value));
+function compareVersions(left: string, right: string): number {
+  const leftParts = left.replace(/^v/, '').split('.').map((part) => Number.parseInt(part, 10) || 0);
+  const rightParts = right.replace(/^v/, '').split('.').map((part) => Number.parseInt(part, 10) || 0);
+  const maxLength = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < maxLength; index += 1) {
+    const leftPart = leftParts[index] ?? 0;
+    const rightPart = rightParts[index] ?? 0;
+    if (leftPart > rightPart) return 1;
+    if (leftPart < rightPart) return -1;
+  }
+  return 0;
 }
 
 function shiftMonth(key: string, delta: number): string {
@@ -159,9 +170,46 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return;
+    if (toast.actionLabel) return;
     const timeout = window.setTimeout(() => setToast(null), 3200);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkForUpdates() {
+      if (!window.gleito) return;
+      try {
+        const currentVersion = await window.gleito.getVersion();
+        const response = await fetch('https://api.github.com/repos/Hubertoink/Gleito/releases/latest', {
+          headers: { Accept: 'application/vnd.github+json' }
+        });
+        if (!response.ok) return;
+        const latestRelease = (await response.json()) as { tag_name?: string; html_url?: string; name?: string };
+        const latestVersion = latestRelease.tag_name?.replace(/^v/, '') ?? '';
+        if (!latestVersion || cancelled) return;
+        if (compareVersions(latestVersion, currentVersion) > 0) {
+          setToast({
+            message: `Update ${latestVersion} verfügbar`,
+            tone: 'info',
+            actionLabel: 'Release öffnen',
+            onAction: () => {
+              if (latestRelease.html_url && window.gleito) {
+                void window.gleito.openExternal(latestRelease.html_url);
+              }
+              setToast(null);
+            }
+          });
+        }
+      } catch {
+        // stiller Fehlschlag, Update-Check soll die App nicht stoeren
+      }
+    }
+    void checkForUpdates();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!db) return;
@@ -239,8 +287,8 @@ export default function App() {
     setActiveMonth(next);
   }
 
-  function showToast(message: string, tone: ToastTone) {
-    setToast({ message, tone });
+  function showToast(message: string, tone: ToastTone, actionLabel?: string, onAction?: () => void | Promise<void>) {
+    setToast({ message, tone, actionLabel, onAction });
   }
 
   function unlockArchiveMonth() {
@@ -369,7 +417,7 @@ export default function App() {
           onChange={saveSettings}
           onExportBackup={exportBackup}
           onImportBackup={importBackup}
-          onResetAllData={resetAllData}
+          onResetAllData={() => setShowResetModal(true)}
         />
       ) : (
         <>
@@ -502,7 +550,14 @@ export default function App() {
       )}
       {toast && (
         <div className={`toast toast-${toast.tone}`} role="status" aria-live="polite">
-          {toast.message}
+          <div className="toast-body">
+            <span>{toast.message}</span>
+            {toast.actionLabel && toast.onAction && (
+              <button className="toast-action" onClick={() => void toast.onAction?.()}>
+                {toast.actionLabel}
+              </button>
+            )}
+          </div>
         </div>
       )}
       {showCloseModal && (

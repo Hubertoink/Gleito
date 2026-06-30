@@ -547,6 +547,20 @@ h2 {
   z-index: 20;
 }
 
+.toast-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.toast-action {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
 .toast-success {
   background: #e8f7eb;
   border-color: #7ab889;
@@ -562,6 +576,11 @@ h2 {
 .toast-info {
   background: #eef3f6;
   border-color: #94aab7;
+  color: #27414c;
+}
+
+.toast-info .toast-action {
+  border-color: #8ca8b6;
   color: #27414c;
 }
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain, type OpenDialogOptions } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, shell, type OpenDialogOptions } from 'electron';
 import path from 'node:path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
@@ -102,6 +102,12 @@ app.whenReady().then(async () => {
     writeFileSync(result.filePath, pdf);
     printWindow.close();
     return result.filePath;
+  });
+
+  ipcMain.handle('app:getVersion', () => app.getVersion());
+  ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+    await shell.openExternal(url);
+    return true;
   });
 
   await createWindow();

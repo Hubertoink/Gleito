@@ -15,5 +15,7 @@ contextBridge.exposeInMainWorld('gleito', {
     return new Uint8Array(result);
   },
   exportPdf: async (html: string, suggestedName: string): Promise<string | null> =>
-    ipcRenderer.invoke('pdf:export', html, suggestedName)
+    ipcRenderer.invoke('pdf:export', html, suggestedName),
+  getVersion: async (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  openExternal: async (url: string): Promise<boolean> => ipcRenderer.invoke('shell:openExternal', url)
 });
