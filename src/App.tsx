@@ -679,7 +679,7 @@ function MonthSummaryBand({
         </div>
         <div className={`summary-inline-item ampel ${summary.trafficLight}`}>
           <span>Ampel</span>
-          <strong>{summary.trafficLight === 'green' ? 'Gruen' : summary.trafficLight === 'yellow' ? 'Gelb' : 'Rot'}</strong>
+          <strong>{summary.trafficLight === 'green' ? 'Grün' : summary.trafficLight === 'yellow' ? 'Gelb' : 'Rot'}</strong>
         </div>
       </section>
     );
@@ -705,7 +705,7 @@ function MonthSummaryBand({
       </div>
       <div className={`summary-inline-item ampel ${summary.trafficLight}`}>
         <span>Ampel</span>
-        <strong>{summary.trafficLight === 'green' ? 'Gruen' : summary.trafficLight === 'yellow' ? 'Gelb' : 'Rot'}</strong>
+        <strong>{summary.trafficLight === 'green' ? 'Grün' : summary.trafficLight === 'yellow' ? 'Gelb' : 'Rot'}</strong>
       </div>
     </section>
   );
@@ -927,13 +927,13 @@ function SettingsPanel({
           <div className="threshold-grid">
             <div className="threshold-block">
               <strong>Plusstunden</strong>
-              <label>Gruen bis<DurationSettingInput value={minutesInput(settings.trafficThresholds.plusGreenUntilMinutes)} onCommit={(value) => updateTraffic('plusGreenUntilMinutes', value)} /></label>
+              <label>Grün bis<DurationSettingInput value={minutesInput(settings.trafficThresholds.plusGreenUntilMinutes)} onCommit={(value) => updateTraffic('plusGreenUntilMinutes', value)} /></label>
               <label>Gelb bis<DurationSettingInput value={minutesInput(settings.trafficThresholds.plusYellowUntilMinutes)} onCommit={(value) => updateTraffic('plusYellowUntilMinutes', value)} /></label>
               <label>Rot ab<DurationSettingInput value={minutesInput(settings.trafficThresholds.plusRedFromMinutes)} onCommit={(value) => updateTraffic('plusRedFromMinutes', value)} /></label>
             </div>
             <div className="threshold-block">
               <strong>Minusstunden</strong>
-              <label>Gruen bis<DurationSettingInput value={minutesInput(settings.trafficThresholds.minusGreenUntilMinutes)} onCommit={(value) => updateTraffic('minusGreenUntilMinutes', value)} /></label>
+              <label>Grün bis<DurationSettingInput value={minutesInput(settings.trafficThresholds.minusGreenUntilMinutes)} onCommit={(value) => updateTraffic('minusGreenUntilMinutes', value)} /></label>
               <label>Gelb bis<DurationSettingInput value={minutesInput(settings.trafficThresholds.minusYellowUntilMinutes)} onCommit={(value) => updateTraffic('minusYellowUntilMinutes', value)} /></label>
               <label>Rot ab<DurationSettingInput value={minutesInput(settings.trafficThresholds.minusRedFromMinutes)} onCommit={(value) => updateTraffic('minusRedFromMinutes', value)} /></label>
             </div>

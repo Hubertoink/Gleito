@@ -13,7 +13,7 @@ function escapeHtml(value: string): string {
 
 export function buildPrintHtml(settings: Settings, days: CalculatedDay[], summary: MonthSummary): string {
   const trafficClass = `traffic-${summary.trafficLight}`;
-  const trafficLabel = summary.trafficLight === 'green' ? 'Gruen' : summary.trafficLight === 'yellow' ? 'Gelb' : 'Rot';
+  const trafficLabel = summary.trafficLight === 'green' ? 'Grün' : summary.trafficLight === 'yellow' ? 'Gelb' : 'Rot';
   const rows = days
     .map(
       (day) => `
