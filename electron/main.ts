@@ -5,6 +5,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 let mainWindow: BrowserWindow | null = null;
 
+app.setPath('sessionData', path.join(app.getPath('userData'), 'session-data'));
+
 function userDataPath(fileName: string): string {
   return path.join(app.getPath('userData'), fileName);
 }
