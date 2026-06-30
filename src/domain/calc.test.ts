@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { holidaysForYear } from './holidays';
 import { autoEndForStart, calculateMonth, daysInMonth, defaultSettings, emptyEntry, requiredPauseMinutes } from './calc';
-import { roundClockToTen } from './time';
+import { roundClockToTen, roundDurationToTen } from './time';
 
 describe('holiday generation', () => {
   it('includes Baden-Württemberg holidays', () => {
@@ -25,6 +25,9 @@ describe('time rules', () => {
     expect(roundClockToTen('08:12')).toBe('08:10');
     expect(roundClockToTen('08:15')).toBe('08:20');
     expect(roundClockToTen('08:20')).toBe('08:20');
+    expect(roundDurationToTen('0:12')).toBe('0:10');
+    expect(roundDurationToTen('0:15')).toBe('0:20');
+    expect(roundDurationToTen('0:20')).toBe('0:20');
   });
 
   it('calculates legal pauses and auto end times', () => {

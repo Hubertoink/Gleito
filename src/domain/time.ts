@@ -28,6 +28,13 @@ export function roundClockToTen(value: string): string {
   return formatClock(rounded);
 }
 
+export function roundDurationToTen(value: string): string {
+  const minutes = parseTime(value);
+  if (minutes === null) return value;
+  const rounded = Math.floor((minutes + 5) / 10) * 10;
+  return formatMinutes(rounded);
+}
+
 export function isTenMinuteValue(value: string): boolean {
   const minutes = parseTime(value);
   return minutes === null || minutes % 10 === 0;

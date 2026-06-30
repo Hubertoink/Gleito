@@ -14,7 +14,7 @@ import {
 } from './domain/calc';
 import type { DayEntry, Settings, WeekdayKey } from './domain/types';
 import { holidayRegions } from './domain/holidays';
-import { formatMinutes, roundClockToTen } from './domain/time';
+import { formatMinutes, roundClockToTen, roundDurationToTen } from './domain/time';
 import { buildPrintHtml } from './pdf';
 import mannheimLogo from '../assets/Mannheim_Weiß.png';
 import appLogo from '../assets/Logo.ico';
@@ -295,6 +295,11 @@ export default function App() {
     updateEntry(entry.date, patch);
   }
 
+  function handlePauseBlur(entry: DayEntry, value: string) {
+    const rounded = settings.roundToTenMinutes ? roundDurationToTen(value) : value;
+    updateEntry(entry.date, { pause: rounded, pauseManual: Boolean(rounded) });
+  }
+
   function openArchiveMonth(next: string) {
     if (!next) return;
     setLockedView(true);
@@ -545,6 +550,7 @@ export default function App() {
                         value={day.pause}
                         placeholder="auto"
                         onChange={(event) => updateEntry(day.date, { pause: event.currentTarget.value, pauseManual: true })}
+                        onBlur={(event) => handlePauseBlur(day, event.currentTarget.value)}
                         onKeyDown={(event) => {
                           if (event.key === 'Tab' && !event.shiftKey) {
                             event.preventDefault();
