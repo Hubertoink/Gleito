@@ -1,8 +1,7 @@
 import type { CalculatedDay, MonthSummary, Settings } from './domain/types';
-import { holidayRegionName } from './domain/holidays';
 import { monthName } from './domain/calc';
 import { formatMinutes } from './domain/time';
-import mannheimLogo from '../assets/Mannheim_Weiß.png';
+import mannheimLogo from '../assets/Mannheim_Weiß.png?inline';
 
 function escapeHtml(value: string): string {
   return value
@@ -75,7 +74,6 @@ export function buildPrintHtml(settings: Settings, days: CalculatedDay[], summar
       <img src="${mannheimLogo}" alt="Stadt Mannheim" />
       <div>
         <strong>${escapeHtml(settings.dienststelle || settings.kostenstelle || 'Dienststelle')}</strong><br />
-        ${escapeHtml(holidayRegionName(settings.holidayRegion))}
       </div>
     </div>
   </header>
