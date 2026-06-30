@@ -2,6 +2,7 @@ import type { CalculatedDay, MonthSummary, Settings } from './domain/types';
 import { holidayRegionName } from './domain/holidays';
 import { monthName } from './domain/calc';
 import { formatMinutes } from './domain/time';
+import mannheimLogo from '../assets/Mannheim_Weiß.png';
 
 function escapeHtml(value: string): string {
   return value
@@ -41,9 +42,11 @@ export function buildPrintHtml(settings: Settings, days: CalculatedDay[], summar
     @page { size: A4; margin: 14mm 12mm; }
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; color: #171717; font-size: 10px; margin: 0; }
-    header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 10px; }
+    header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 10px; gap: 18px; }
     h1 { font-size: 22px; margin: 0 0 4px; }
     h2 { font-size: 15px; margin: 0; }
+    .brand { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
+    .brand img { width: 210px; height: auto; object-fit: contain; }
     .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 14px; margin-bottom: 10px; }
     .box { border: 1px solid #111; padding: 5px; min-height: 28px; }
     .label { display: block; color: #555; font-size: 8px; text-transform: uppercase; }
@@ -68,9 +71,12 @@ export function buildPrintHtml(settings: Settings, days: CalculatedDay[], summar
       <h1>Gleitzeitnachweis</h1>
       <h2>${monthName(summary.monthKey)}</h2>
     </div>
-    <div style="text-align:right">
-      <strong>${escapeHtml(settings.dienststelle || settings.kostenstelle || 'Dienststelle')}</strong><br />
-      ${escapeHtml(holidayRegionName(settings.holidayRegion))}
+    <div class="brand">
+      <img src="${mannheimLogo}" alt="Stadt Mannheim" />
+      <div>
+        <strong>${escapeHtml(settings.dienststelle || settings.kostenstelle || 'Dienststelle')}</strong><br />
+        ${escapeHtml(holidayRegionName(settings.holidayRegion))}
+      </div>
     </div>
   </header>
   <section class="meta">
