@@ -1,0 +1,190 @@
+import type { CalculatedDay, DayEntry, MonthSummary, Settings, WeekdayKey } from './types';
+import { holidaysForYear } from './holidays';
+import { addClockMinutes, isTenMinuteValue, parseTime } from './time';
+
+const WEEKDAY_KEYS: WeekdayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const WEEKDAY_LABELS: Record<WeekdayKey, string> = {
+  mon: 'Mo',
+  tue: 'Di',
+  wed: 'Mi',
+  thu: 'Do',
+  fri: 'Fr',
+  sat: 'Sa',
+  sun: 'So'
+};
+const ABSENCE_REMARKS = new Set(['Urlaub', 'krank', 'Zeitkonto', 'AZVO']);
+
+export function defaultSettings(): Settings {
+  const currentMonth = monthKey(new Date());
+  return {
+    employeeName: 'Beckord, Merle',
+    dienststelle: '',
+    kostenstelle: '58.5.6',
+    personalNumber: '',
+    department: '',
+    trackingStartMonth: currentMonth,
+    currentWorkMonth: currentMonth,
+    holidayRegion: 'BW',
+    customHolidays: [],
+    initialCarryoverMinutes: 0,
+    overtimeLimitMinutes: 40 * 60,
+    minusCountingMode: 'planned_days',
+    trafficThresholds: {
+      plusGreenUntilMinutes: 20 * 60,
+      plusYellowUntilMinutes: 40 * 60,
+      plusRedFromMinutes: 60 * 60,
+      minusGreenUntilMinutes: 10 * 60,
+      minusYellowUntilMinutes: 10 * 60,
+      minusRedFromMinutes: 11 * 60
+    },
+    backgroundEnabled: false,
+    translucentSurfaces: true,
+    highlightOpenPlannedDays: false,
+    backgroundImage: 'none',
+    rotateBackgrounds: false,
+    surfaceOpacity: 0.92,
+    tableOpacity: 0.94,
+    windowTransparency: 0.98,
+    warnBeforeSix: true,
+    warnAfterSix: true,
+    roundToTenMinutes: false,
+    weekdays: {
+      mon: { targetMinutes: 8 * 60, workAllowed: true },
+      tue: { targetMinutes: 8 * 60, workAllowed: true },
+      wed: { targetMinutes: 8 * 60, workAllowed: true },
+      thu: { targetMinutes: 8 * 60, workAllowed: true },
+      fri: { targetMinutes: 7 * 60, workAllowed: true },
+      sat: { targetMinutes: 0, workAllowed: false },
+      sun: { targetMinutes: 0, workAllowed: false }
+    }
+  };
+}
+
+export function monthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function monthName(key: string): string {
+  const [year, month] = key.split('-').map(Number);
+  return new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
+}
+
+export function daysInMonth(key: string): string[] {
+  const [year, month] = key.split('-').map(Number);
+  const count = new Date(year, month, 0).getDate();
+  return Array.from({ length: count }, (_, index) => `${key}-${String(index + 1).padStart(2, '0')}`);
+}
+
+export function emptyEntry(date: string): DayEntry {
+  return { date, start: '', end: '', pause: '', pauseManual: false, endManual: false, remark: '' };
+}
+
+export function normalizeMonthEntries(entries: DayEntry[], key: string): DayEntry[] {
+  const byDate = new Map(entries.map((entry) => [entry.date, entry]));
+  return daysInMonth(key).map((date) => ({ ...emptyEntry(date), ...byDate.get(date) }));
+}
+
+export function requiredPauseMinutes(grossMinutes: number): number {
+  if (grossMinutes <= 6 * 60) return 0;
+  if (grossMinutes >= 9 * 60 + 45) return 45;
+  return 30;
+}
+
+export function autoEndForStart(start: string, targetMinutes: number): string {
+  if (!start || targetMinutes <= 0) return '';
+  let pause = targetMinutes > 6 * 60 ? 30 : 0;
+  for (let i = 0; i < 3; i += 1) {
+    const nextPause = requiredPauseMinutes(targetMinutes + pause);
+    if (nextPause === pause) break;
+    pause = nextPause;
+  }
+  return addClockMinutes(start, targetMinutes + pause);
+}
+
+export function calculateDay(entry: DayEntry, settings: Settings, editable: boolean): CalculatedDay {
+  const date = new Date(`${entry.date}T00:00:00`);
+  const entryMonthKey = entry.date.slice(0, 7);
+  const weekday = WEEKDAY_KEYS[date.getDay()];
+  const holidays = holidaysForYear(date.getFullYear(), settings.holidayRegion, settings.customHolidays);
+  const holidayName = holidays.get(entry.date) ?? '';
+  const isWeekend = weekday === 'sat' || weekday === 'sun';
+  const weekdaySetting = settings.weekdays[weekday];
+  const isCompDay = entry.remark === 'Ausgleichstag';
+  const hasAbsenceRemark = ABSENCE_REMARKS.has(entry.remark);
+  const holidayBlocksTarget = Boolean(holidayName);
+  const beforeTrackingStart = entryMonthKey < settings.trackingStartMonth;
+  const targetMinutes = beforeTrackingStart || hasAbsenceRemark || holidayBlocksTarget ? 0 : weekdaySetting.targetMinutes;
+  const start = parseTime(entry.start);
+  const end = parseTime(entry.end);
+  const gross = start !== null && end !== null ? Math.max(0, end - start) : 0;
+  const automaticPause = gross > 0 ? requiredPauseMinutes(gross) : 0;
+  const manualPause = parseTime(entry.pause);
+  const pauseMinutes = entry.pauseManual && manualPause !== null ? manualPause : automaticPause;
+  const actualMinutes = isCompDay ? 0 : gross > 0 ? Math.max(0, gross - pauseMinutes) : 0;
+  const plusMinutes = isCompDay ? 0 : actualMinutes > targetMinutes ? actualMinutes - targetMinutes : 0;
+  const hasUserInteraction = Boolean(entry.start || entry.end || entry.remark || (entry.pauseManual && entry.pause));
+  const countsPendingAsMinus = settings.minusCountingMode === 'planned_days';
+  const minusMinutes =
+    !isWeekend && targetMinutes > actualMinutes && !holidayBlocksTarget && (countsPendingAsMinus || hasUserInteraction)
+      ? targetMinutes - actualMinutes
+      : 0;
+  const warnings: string[] = [];
+
+  if (actualMinutes > 10 * 60) warnings.push('Mehr als 10 Stunden Arbeitszeit');
+  if (settings.warnBeforeSix && start !== null && start < 6 * 60) warnings.push('Beginn vor 06:00 Uhr');
+  if (settings.warnAfterSix && end !== null && end > 18 * 60) warnings.push('Ende nach 18:00 Uhr');
+  if (!settings.roundToTenMinutes && (!isTenMinuteValue(entry.start) || !isTenMinuteValue(entry.end))) {
+    warnings.push('Zeit nicht im 10-Minuten-Raster');
+  }
+
+  return {
+    ...entry,
+    pause: entry.pauseManual ? entry.pause : pauseMinutes ? `${Math.floor(pauseMinutes / 60)}:${String(pauseMinutes % 60).padStart(2, '0')}` : '',
+    weekday,
+    weekdayLabel: WEEKDAY_LABELS[weekday],
+    holidayName,
+    targetMinutes,
+    actualMinutes,
+    plusMinutes,
+    minusMinutes,
+    warnings,
+    editable
+  };
+}
+
+export function calculateMonth(
+  entries: DayEntry[],
+  settings: Settings,
+  key: string,
+  carryInMinutes: number,
+  editable: boolean
+): { days: CalculatedDay[]; summary: MonthSummary } {
+  const days = normalizeMonthEntries(entries, key).map((entry) => calculateDay(entry, settings, editable));
+  const plusMinutes = days.reduce((sum, day) => sum + day.plusMinutes, 0);
+  const minusMinutes = days.reduce((sum, day) => sum + day.minusMinutes, 0);
+  const monthDeltaMinutes = plusMinutes - minusMinutes;
+  const saldoMinutes = carryInMinutes + monthDeltaMinutes;
+  const thresholds = settings.trafficThresholds;
+  let trafficLight: 'green' | 'yellow' | 'red' = 'green';
+  if (saldoMinutes >= 0) {
+    if (saldoMinutes >= thresholds.plusRedFromMinutes) trafficLight = 'red';
+    else if (saldoMinutes > thresholds.plusGreenUntilMinutes || saldoMinutes > thresholds.plusYellowUntilMinutes) trafficLight = 'yellow';
+  } else {
+    const debt = Math.abs(saldoMinutes);
+    if (debt >= thresholds.minusRedFromMinutes) trafficLight = 'red';
+    else if (debt > thresholds.minusGreenUntilMinutes && debt <= thresholds.minusYellowUntilMinutes) trafficLight = 'yellow';
+  }
+  return {
+    days,
+    summary: {
+      monthKey: key,
+      carryInMinutes,
+      plusMinutes,
+      minusMinutes,
+      monthDeltaMinutes,
+      saldoMinutes,
+      trafficLight,
+      warningCount: days.reduce((sum, day) => sum + day.warnings.length, 0)
+    }
+  };
+}
