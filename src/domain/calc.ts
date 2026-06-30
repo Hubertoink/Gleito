@@ -17,9 +17,9 @@ const ABSENCE_REMARKS = new Set(['Urlaub', 'krank', 'Zeitkonto', 'AZVO']);
 export function defaultSettings(): Settings {
   const currentMonth = monthKey(new Date());
   return {
-    employeeName: 'Beckord, Merle',
+    employeeName: '',
     dienststelle: '',
-    kostenstelle: '58.5.6',
+    kostenstelle: '',
     personalNumber: '',
     department: '',
     trackingStartMonth: currentMonth,
@@ -28,7 +28,7 @@ export function defaultSettings(): Settings {
     customHolidays: [],
     initialCarryoverMinutes: 0,
     overtimeLimitMinutes: 40 * 60,
-    minusCountingMode: 'planned_days',
+    minusCountingMode: 'explicit_only',
     trafficThresholds: {
       plusGreenUntilMinutes: 20 * 60,
       plusYellowUntilMinutes: 40 * 60,
@@ -37,7 +37,7 @@ export function defaultSettings(): Settings {
       minusYellowUntilMinutes: 10 * 60,
       minusRedFromMinutes: 11 * 60
     },
-    backgroundEnabled: false,
+    backgroundEnabled: true,
     translucentSurfaces: true,
     highlightOpenPlannedDays: false,
     backgroundImage: 'none',
