@@ -12,7 +12,7 @@ const WEEKDAY_LABELS: Record<WeekdayKey, string> = {
   sat: 'Sa',
   sun: 'So'
 };
-const ABSENCE_REMARKS = new Set(['Urlaub', 'krank', 'Zeitkonto', 'AZVO']);
+const ABSENCE_REMARKS = new Set(['Zeitkonto', 'AZVO']);
 
 export function defaultSettings(): Settings {
   const currentMonth = monthKey(new Date());
@@ -48,6 +48,7 @@ export function defaultSettings(): Settings {
     warnBeforeSix: true,
     warnAfterSix: true,
     roundToTenMinutes: false,
+    pdfExportLayout: 'gleito',
     weekdays: {
       mon: { targetMinutes: 8 * 60, workAllowed: true },
       tue: { targetMinutes: 8 * 60, workAllowed: true },
@@ -110,8 +111,11 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
   const isWeekend = weekday === 'sat' || weekday === 'sun';
   const weekdaySetting = settings.weekdays[weekday];
   const isCompDay = entry.remark === 'Ausgleichstag';
+  const isVacationDay = entry.remark === 'Urlaub';
+  const isSickDay = entry.remark === 'krank';
+  const isHolidayRemark = entry.remark === 'Feiertag';
   const hasAbsenceRemark = ABSENCE_REMARKS.has(entry.remark);
-  const holidayBlocksTarget = Boolean(holidayName);
+  const holidayBlocksTarget = Boolean(holidayName) || isHolidayRemark;
   const beforeTrackingStart = entryMonthKey < settings.trackingStartMonth;
   const targetMinutes = beforeTrackingStart || hasAbsenceRemark || holidayBlocksTarget ? 0 : weekdaySetting.targetMinutes;
   const start = parseTime(entry.start);
@@ -120,7 +124,14 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
   const automaticPause = gross > 0 ? requiredPauseMinutes(gross) : 0;
   const manualPause = parseTime(entry.pause);
   const pauseMinutes = entry.pauseManual && manualPause !== null ? manualPause : automaticPause;
-  const actualMinutes = isCompDay ? 0 : gross > 0 ? Math.max(0, gross - pauseMinutes) : 0;
+  const actualMinutes =
+    isCompDay || holidayBlocksTarget
+      ? 0
+      : isSickDay || isVacationDay
+        ? targetMinutes
+        : gross > 0
+          ? Math.max(0, gross - pauseMinutes)
+          : 0;
   const plusMinutes = isCompDay ? 0 : actualMinutes > targetMinutes ? actualMinutes - targetMinutes : 0;
   const hasUserInteraction = Boolean(entry.start || entry.end || entry.remark || (entry.pauseManual && entry.pause));
   const countsPendingAsMinus = settings.minusCountingMode === 'planned_days';
@@ -142,7 +153,7 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
     pause: entry.pauseManual ? entry.pause : pauseMinutes ? `${Math.floor(pauseMinutes / 60)}:${String(pauseMinutes % 60).padStart(2, '0')}` : '',
     weekday,
     weekdayLabel: WEEKDAY_LABELS[weekday],
-    holidayName,
+    holidayName: holidayName || (isHolidayRemark ? 'Feiertag' : ''),
     targetMinutes,
     actualMinutes,
     plusMinutes,

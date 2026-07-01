@@ -972,6 +972,12 @@ function SettingsPanel({
         <label className="check"><input type="checkbox" checked={settings.backgroundEnabled} onChange={(e) => update({ backgroundEnabled: e.currentTarget.checked })} /> Hintergrundbild anzeigen</label>
         <label className="check"><input type="checkbox" checked={settings.translucentSurfaces} onChange={(e) => update({ translucentSurfaces: e.currentTarget.checked })} /> Kacheltransparenz aktivieren</label>
         <label className="check"><input type="checkbox" checked={settings.highlightOpenPlannedDays} onChange={(e) => update({ highlightOpenPlannedDays: e.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
+        <label>PDF-Exportlayout
+          <select value={settings.pdfExportLayout} onChange={(e) => update({ pdfExportLayout: e.currentTarget.value as Settings['pdfExportLayout'] })}>
+            <option value="gleito">Gleito Standard</option>
+            <option value="stadt-mannheim">Offizielles Stadtlayout Mannheim</option>
+          </select>
+        </label>
       </div>
 
       <div className="panel">

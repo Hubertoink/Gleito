@@ -93,6 +93,58 @@ describe('month calculation', () => {
     expect(day?.minusMinutes).toBe(8 * 60);
   });
 
+  it('treats krank like a fulfilled target day without changing plus or minus', () => {
+    const settings = defaultSettings();
+    settings.trackingStartMonth = '2026-07';
+    const result = calculateMonth([{ ...emptyEntry('2026-07-07'), remark: 'krank' }], settings, '2026-07', 0, true);
+    const day = result.days.find((entry) => entry.date === '2026-07-07');
+    expect(day?.targetMinutes).toBe(8 * 60);
+    expect(day?.actualMinutes).toBe(8 * 60);
+    expect(day?.plusMinutes).toBe(0);
+    expect(day?.minusMinutes).toBe(0);
+  });
+
+  it('treats Urlaub like a fulfilled target day without changing plus or minus', () => {
+    const settings = defaultSettings();
+    settings.trackingStartMonth = '2026-07';
+    const result = calculateMonth([{ ...emptyEntry('2026-07-08'), remark: 'Urlaub' }], settings, '2026-07', 0, true);
+    const day = result.days.find((entry) => entry.date === '2026-07-08');
+    expect(day?.targetMinutes).toBe(8 * 60);
+    expect(day?.actualMinutes).toBe(8 * 60);
+    expect(day?.plusMinutes).toBe(0);
+    expect(day?.minusMinutes).toBe(0);
+  });
+
+  it('treats Feiertag as neutral even when times are entered', () => {
+    const settings = defaultSettings();
+    settings.trackingStartMonth = '2026-01';
+    const result = calculateMonth(
+      [{ ...emptyEntry('2026-01-06'), start: '10:00', end: '18:30' }],
+      settings,
+      '2026-01',
+      0,
+      true
+    );
+    const day = result.days.find((entry) => entry.date === '2026-01-06');
+    expect(day?.holidayName).toBe('Heilige Drei Könige');
+    expect(day?.targetMinutes).toBe(0);
+    expect(day?.actualMinutes).toBe(0);
+    expect(day?.plusMinutes).toBe(0);
+    expect(day?.minusMinutes).toBe(0);
+  });
+
+  it('treats a manual Feiertag remark as neutral without requiring times', () => {
+    const settings = defaultSettings();
+    settings.trackingStartMonth = '2026-07';
+    const result = calculateMonth([{ ...emptyEntry('2026-07-08'), remark: 'Feiertag' }], settings, '2026-07', 0, true);
+    const day = result.days.find((entry) => entry.date === '2026-07-08');
+    expect(day?.holidayName).toBe('Feiertag');
+    expect(day?.targetMinutes).toBe(0);
+    expect(day?.actualMinutes).toBe(0);
+    expect(day?.plusMinutes).toBe(0);
+    expect(day?.minusMinutes).toBe(0);
+  });
+
   it('can ignore untouched target days in explicit-only minus mode', () => {
     const settings = defaultSettings();
     settings.trackingStartMonth = '2026-07';

@@ -45,6 +45,7 @@ export interface TrafficThresholds {
 }
 
 export type BackgroundImageOption = 'none' | 'pexels-arlind' | 'pexels-magnus' | 'pexels-masood';
+export type PdfExportLayout = 'gleito' | 'stadt-mannheim';
 
 export interface Settings {
   employeeName: string;
@@ -72,6 +73,7 @@ export interface Settings {
   warnBeforeSix: boolean;
   warnAfterSix: boolean;
   roundToTenMinutes: boolean;
+  pdfExportLayout: PdfExportLayout;
 }
 
 export interface DayEntry {
