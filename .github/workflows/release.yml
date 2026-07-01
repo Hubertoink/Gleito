@@ -35,6 +35,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify package version matches tag
+        run: |
+          $tagVersion = $env:RELEASE_TAG.TrimStart('v')
+          $packageVersion = (node -p "require('./package.json').version")
+          if ($packageVersion -ne $tagVersion) {
+            Write-Error "package.json version $packageVersion does not match release tag $env:RELEASE_TAG"
+            exit 1
+          }
+        shell: pwsh
+
       - name: Clean release directory
         run: |
           if (Test-Path release) {

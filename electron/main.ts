@@ -151,6 +151,25 @@ app.whenReady().then(async () => {
     return result.filePath;
   });
 
+  ipcMain.handle('excel:loadTemplate', () => {
+    const templatePath = path.join(app.getAppPath(), 'assets', 'Forderungsnachweis.xlsx');
+    if (!existsSync(templatePath)) return null;
+    return readFileSync(templatePath);
+  });
+
+  ipcMain.handle('excel:saveExport', async (_event, bytes: Uint8Array, suggestedName: string) => {
+    const owner = mainWindow ?? undefined;
+    const options = {
+      title: 'Forderungsnachweis exportieren',
+      defaultPath: suggestedName,
+      filters: [{ name: 'Excel-Arbeitsmappe', extensions: ['xlsx'] }]
+    };
+    const result = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return null;
+    writeFileSync(result.filePath, Buffer.from(bytes));
+    return result.filePath;
+  });
+
   ipcMain.handle('app:getVersion', () => app.getVersion());
   ipcMain.handle('shell:openExternal', async (_event, url: string) => {
     await shell.openExternal(url);

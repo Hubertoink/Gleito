@@ -49,6 +49,7 @@ export function defaultSettings(): Settings {
     warnAfterSix: true,
     roundToTenMinutes: false,
     pdfExportLayout: 'gleito',
+    hasCanteenAccess: true,
     setupGuideCompleted: false,
     weekdays: {
       mon: { targetMinutes: 8 * 60, workAllowed: true },
@@ -64,6 +65,32 @@ export function defaultSettings(): Settings {
 
 export function monthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function shiftMonth(key: string, delta: number): string {
+  const [year, month] = key.split('-').map(Number);
+  return monthKey(new Date(year, month - 1 + delta, 1));
+}
+
+export function resolveCurrentWorkMonth({
+  trackingStartMonth,
+  currentWorkMonth,
+  monthKeys,
+  preferStartMonthIfEarlier = false
+}: {
+  trackingStartMonth: string;
+  currentWorkMonth?: string;
+  monthKeys: string[];
+  preferStartMonthIfEarlier?: boolean;
+}): string {
+  if (monthKeys.length === 0) return trackingStartMonth;
+  if (currentWorkMonth) {
+    if (preferStartMonthIfEarlier && currentWorkMonth > trackingStartMonth) return trackingStartMonth;
+    return currentWorkMonth >= trackingStartMonth ? currentWorkMonth : trackingStartMonth;
+  }
+  const latestStoredMonth = [...monthKeys].sort((a, b) => b.localeCompare(a))[0];
+  const inferredNextMonth = shiftMonth(latestStoredMonth, 1);
+  return inferredNextMonth >= trackingStartMonth ? inferredNextMonth : trackingStartMonth;
 }
 
 export function monthName(key: string): string {

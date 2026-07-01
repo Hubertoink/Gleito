@@ -16,6 +16,13 @@ contextBridge.exposeInMainWorld('gleito', {
   },
   exportPdf: async (html: string, suggestedName: string): Promise<string | null> =>
     ipcRenderer.invoke('pdf:export', html, suggestedName),
+  loadExcelTemplate: async (): Promise<Uint8Array | null> => {
+    const result = await ipcRenderer.invoke('excel:loadTemplate');
+    if (!result) return null;
+    return new Uint8Array(result);
+  },
+  saveExcelExport: async (bytes: Uint8Array, suggestedName: string): Promise<string | null> =>
+    ipcRenderer.invoke('excel:saveExport', bytes, suggestedName),
   getVersion: async (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   openExternal: async (url: string): Promise<boolean> => ipcRenderer.invoke('shell:openExternal', url),
   checkForAppUpdate: async (): Promise<{ supported: boolean; started?: boolean; reason?: string }> =>

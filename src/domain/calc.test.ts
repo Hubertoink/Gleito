@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { holidaysForYear } from './holidays';
-import { autoEndForStart, calculateMonth, daysInMonth, defaultSettings, emptyEntry, requiredPauseMinutes } from './calc';
+import { autoEndForStart, calculateMonth, daysInMonth, defaultSettings, emptyEntry, requiredPauseMinutes, resolveCurrentWorkMonth } from './calc';
 import { roundClockToTen, roundDurationToTen } from './time';
 
 describe('holiday generation', () => {
@@ -74,6 +74,17 @@ describe('month calculation', () => {
     const june = calculateMonth([], settings, '2026-06', 0, true);
     expect(june.summary.carryInMinutes).toBe(0);
     expect(june.summary.minusMinutes).toBe(0);
+  });
+
+  it('clamps the current work month to the configured start month when the start month moves earlier', () => {
+    const resolved = resolveCurrentWorkMonth({
+      trackingStartMonth: '2026-06',
+      currentWorkMonth: '2026-07',
+      monthKeys: [],
+      preferStartMonthIfEarlier: true
+    });
+
+    expect(resolved).toBe('2026-06');
   });
 
   it('treats Ausgleichstag as a minus withdrawal from the overtime account', () => {

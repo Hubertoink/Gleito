@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Archive, Bell, CalendarDays, CheckCircle2, Clock, Download, Eye, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, UserRound, X } from 'lucide-react';
+import { AlertTriangle, Archive, Bell, CalendarDays, CheckCircle2, ChevronDown, Clock, Download, Eye, FileSpreadsheet, FileText, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, UserRound, X } from 'lucide-react';
 import type { AppDatabase } from './data/db';
 import { openDatabase } from './data/db';
 import {
@@ -10,7 +10,8 @@ import {
   emptyEntry,
   monthKey as keyForDate,
   monthName,
-  normalizeMonthEntries
+  normalizeMonthEntries,
+  resolveCurrentWorkMonth
 } from './domain/calc';
 import type { DayEntry, Settings, WeekdayKey } from './domain/types';
 import { holidayRegions } from './domain/holidays';
@@ -103,8 +104,10 @@ export default function App() {
   const [lockedView, setLockedView] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [showUnlockArchiveModal, setShowUnlockArchiveModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [updateStatus, setUpdateStatus] = useState<UpdateStatusPayload | null>(null);
   const manualUpdateCheckRef = useRef(false);
@@ -116,9 +119,9 @@ export default function App() {
   const archiveMonths = useMemo(
     () =>
       storedMonthKeys
-        .filter((month) => month < homeMonth || (month === homeMonth && homeMonth === todayMonth))
+        .filter((month) => month < homeMonth)
         .sort((a, b) => b.localeCompare(a)),
-    [storedMonthKeys, homeMonth, todayMonth]
+    [storedMonthKeys, homeMonth]
   );
   const calculated = useMemo(
     () => calculateMonth(entries, settings, activeMonth, carryIn, editable),
@@ -134,21 +137,15 @@ export default function App() {
   const effectiveSurfaceOpacity = backgroundSource && settings.translucentSurfaces ? 0.82 : 0.98;
   const effectiveTableOpacity = backgroundSource && settings.translucentSurfaces ? 0.84 : 0.98;
 
-  function resolveCurrentWorkMonth(loadedSettings: Settings, startMonth: string, monthKeys: string[]) {
-    if (monthKeys.length === 0) return startMonth;
-    if (loadedSettings.currentWorkMonth) {
-      return loadedSettings.currentWorkMonth >= startMonth ? loadedSettings.currentWorkMonth : startMonth;
-    }
-    const latestStoredMonth = [...monthKeys].sort((a, b) => b.localeCompare(a))[0];
-    const inferredNextMonth = shiftMonth(latestStoredMonth, 1);
-    return inferredNextMonth >= startMonth ? inferredNextMonth : startMonth;
-  }
-
   async function hydrateFromDatabase(database: AppDatabase, preferredMonth?: string) {
     const loadedSettings = database.loadSettings();
     const startMonth = loadedSettings.trackingStartMonth || todayMonth;
     const monthKeys = database.listMonthKeys();
-    const currentWorkMonth = resolveCurrentWorkMonth(loadedSettings, startMonth, monthKeys);
+    const currentWorkMonth = resolveCurrentWorkMonth({
+      trackingStartMonth: startMonth,
+      currentWorkMonth: loadedSettings.currentWorkMonth,
+      monthKeys
+    });
     const candidateMonth = preferredMonth ?? currentWorkMonth;
     const initialMonth =
       candidateMonth < startMonth ? startMonth : candidateMonth || (todayMonth < startMonth ? startMonth : todayMonth);
@@ -250,10 +247,28 @@ export default function App() {
   }
 
   async function saveSettings(next: Settings) {
-    setSettings(next);
+    const nextCurrentWorkMonth = next.trackingStartMonth !== settings.trackingStartMonth && next.trackingStartMonth < settings.currentWorkMonth
+      ? next.trackingStartMonth
+      : next.currentWorkMonth;
+    const resolvedCurrentWorkMonth = resolveCurrentWorkMonth({
+      trackingStartMonth: next.trackingStartMonth,
+      currentWorkMonth: nextCurrentWorkMonth,
+      monthKeys: storedMonthKeys,
+      preferStartMonthIfEarlier: next.trackingStartMonth !== settings.trackingStartMonth
+    });
+    const nextSettings = { ...next, currentWorkMonth: resolvedCurrentWorkMonth };
+    setSettings(nextSettings);
+    setHomeMonth(resolvedCurrentWorkMonth);
+    if (resolvedCurrentWorkMonth < activeMonth) {
+      setActiveMonth(resolvedCurrentWorkMonth);
+    }
     if (!db) return;
-    await db.saveSettings(next);
-    setCarryIn(await carryInForMonth(db, next, activeMonth));
+    if (!storedMonthKeys.includes(nextSettings.trackingStartMonth)) {
+      await db.saveMonth(nextSettings.trackingStartMonth, []);
+      setStoredMonthKeys(db.listMonthKeys());
+    }
+    await db.saveSettings(nextSettings);
+    setCarryIn(await carryInForMonth(db, nextSettings, activeMonth < resolvedCurrentWorkMonth ? resolvedCurrentWorkMonth : activeMonth));
   }
 
   async function persistCurrentWorkMonth(nextMonth: string) {
@@ -349,21 +364,49 @@ export default function App() {
   }
 
   function unlockArchiveMonth() {
-    const unlock = window.confirm('Vergangene Monate sollen normalerweise nur angesehen werden. Bearbeitung wirklich entsperren?');
-    if (!unlock) return;
-    setLockedView(false);
+    setShowUnlockArchiveModal(true);
   }
 
-  async function exportPdf() {
-    const html = buildPrintHtml(settings, calculated.days, calculated.summary);
-    const fileName = `Gleitzettel_${activeMonth}_${settings.employeeName || 'Monat'}.pdf`.replace(/[\\/:*?"<>|]/g, '_');
+  function confirmUnlockArchiveMonth() {
+    setLockedView(false);
+    setShowUnlockArchiveModal(false);
+  }
+
+  async function exportPdf(layout: Settings['pdfExportLayout'] = settings.pdfExportLayout) {
+    const exportSettings = { ...settings, pdfExportLayout: layout };
+    const html = buildPrintHtml(exportSettings, calculated.days, calculated.summary);
+    const layoutLabel = layout === 'stadt-mannheim' ? 'Stadt_Mannheim' : 'Gleito';
+    const fileName = `Gleitzettel_${layoutLabel}_${activeMonth}_${settings.employeeName || 'Monat'}.pdf`.replace(/[\\/:*?"<>|]/g, '_');
     try {
+      setExportMenuOpen(false);
       const path = window.gleito ? await window.gleito.exportPdf(html, fileName) : null;
       if (path) showToast('PDF exportiert', 'success');
       return path;
     } catch (error) {
       showToast('PDF-Export fehlgeschlagen', 'error');
       return null;
+    }
+  }
+
+  async function exportForderungsnachweis() {
+    setExportMenuOpen(false);
+    if (!window.gleito) {
+      showToast('Excel-Export nur in der Desktop-App verfuegbar', 'info');
+      return;
+    }
+    try {
+      const templateBytes = await window.gleito.loadExcelTemplate();
+      if (!templateBytes) {
+        showToast('Forderungsnachweis-Vorlage nicht gefunden', 'error');
+        return;
+      }
+      const { buildForderungsnachweisWorkbook } = await import('./excelExport');
+      const workbook = await buildForderungsnachweisWorkbook(templateBytes, calculated.days, activeMonth, settings);
+      const fileName = `Forderungsnachweis_${activeMonth}_${settings.employeeName || 'Monat'}.xlsx`.replace(/[\\/:*?"<>|]/g, '_');
+      const path = await window.gleito.saveExcelExport(workbook.bytes, fileName);
+      if (path) showToast('Forderungsnachweis exportiert', 'success');
+    } catch (error) {
+      showToast('Excel-Export fehlgeschlagen', 'error');
     }
   }
 
@@ -473,9 +516,32 @@ export default function App() {
           <button className={view === 'settings' ? 'active' : ''} onClick={() => setView('settings')} title="Einstellungen">
             <SettingsIcon size={18} /> Einstellungen
           </button>
-          <button onClick={exportPdf} title="PDF exportieren">
-            <Download size={18} /> PDF
-          </button>
+          <div className="export-split">
+            <button className="export-main-button" onClick={() => void exportPdf()} title="Exportieren">
+              <Download size={18} /> Export
+            </button>
+            <button
+              className="export-menu-button"
+              onClick={() => setExportMenuOpen((open) => !open)}
+              aria-label="Exportarten anzeigen"
+              aria-expanded={exportMenuOpen}
+            >
+              <ChevronDown size={16} />
+            </button>
+            {exportMenuOpen && (
+              <div className="export-menu">
+                <button type="button" onClick={() => void exportPdf('gleito')}>
+                  <FileText size={16} /> PDF Gleito
+                </button>
+                <button type="button" onClick={() => void exportPdf('stadt-mannheim')}>
+                  <FileText size={16} /> PDF Stadt Mannheim
+                </button>
+                <button type="button" onClick={() => void exportForderungsnachweis()}>
+                  <FileSpreadsheet size={16} /> Ford. Excel
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -652,6 +718,29 @@ export default function App() {
             <div className="modal-actions">
               <button className="ghost-button" onClick={() => setShowCloseModal(false)}>Abbrechen</button>
               <button onClick={closeMonth}>Jetzt abschliessen</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showUnlockArchiveModal && (
+        <div className="modal-backdrop" onClick={() => setShowUnlockArchiveModal(false)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Archivmonat bearbeiten</h2>
+              <button className="icon-button" onClick={() => setShowUnlockArchiveModal(false)} aria-label="Schliessen">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-notice">
+              <AlertTriangle size={18} />
+              <p>Vergangene Monate sind normalerweise nur zur Ansicht geoeffnet.</p>
+            </div>
+            <p className="modal-copy">
+              Moechtest du {monthName(activeMonth)} wirklich zur Bearbeitung entsperren? Aenderungen koennen Uebertraege der Folgemonate beeinflussen.
+            </p>
+            <div className="modal-actions">
+              <button className="ghost-button" onClick={() => setShowUnlockArchiveModal(false)}>Abbrechen</button>
+              <button onClick={confirmUnlockArchiveMonth}>Bearbeitung entsperren</button>
             </div>
           </div>
         </div>
@@ -997,6 +1086,7 @@ function SetupGuideModal({
               <label className="check"><input type="checkbox" checked={draft.warnAfterSix} onChange={(event) => update({ warnAfterSix: event.currentTarget.checked })} /> Warnung nach 18:00 Uhr</label>
               <label className="check"><input type="checkbox" checked={draft.roundToTenMinutes} onChange={(event) => update({ roundToTenMinutes: event.currentTarget.checked })} /> Kaufmännisch auf 10 Minuten runden</label>
               <label className="check"><input type="checkbox" checked={draft.highlightOpenPlannedDays} onChange={(event) => update({ highlightOpenPlannedDays: event.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
+              <label className="check"><input type="checkbox" checked={draft.hasCanteenAccess} onChange={(event) => update({ hasCanteenAccess: event.currentTarget.checked })} /> Zugang zu einer Kantine</label>
               <label>PDF-Exportlayout
                 <select value={draft.pdfExportLayout} onChange={(event) => update({ pdfExportLayout: event.currentTarget.value as Settings['pdfExportLayout'] })}>
                   <option value="gleito">Gleito Standard</option>
@@ -1130,6 +1220,7 @@ function SettingsPanel({
         <label className="check"><input type="checkbox" checked={settings.warnBeforeSix} onChange={(e) => update({ warnBeforeSix: e.currentTarget.checked })} /> Warnung vor 06:00 Uhr</label>
         <label className="check"><input type="checkbox" checked={settings.warnAfterSix} onChange={(e) => update({ warnAfterSix: e.currentTarget.checked })} /> Warnung nach 18:00 Uhr</label>
         <label className="check"><input type="checkbox" checked={settings.roundToTenMinutes} onChange={(e) => update({ roundToTenMinutes: e.currentTarget.checked })} /> Kaufmännisch auf 10 Minuten runden</label>
+        <label className="check"><input type="checkbox" checked={settings.hasCanteenAccess} onChange={(e) => update({ hasCanteenAccess: e.currentTarget.checked })} /> Zugang zu einer Kantine</label>
       </div>
 
       <div className="panel">

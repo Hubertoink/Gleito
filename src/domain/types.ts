@@ -74,6 +74,7 @@ export interface Settings {
   warnAfterSix: boolean;
   roundToTenMinutes: boolean;
   pdfExportLayout: PdfExportLayout;
+  hasCanteenAccess: boolean;
   setupGuideCompleted: boolean;
 }
 

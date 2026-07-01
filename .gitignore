@@ -15,6 +15,7 @@ vite.config.d.ts
 *.sqlite-wal
 *.gleito
 *.xlsx
+!assets/Forderungsnachweis.xlsx
 
 # OS / editor
 .DS_Store
