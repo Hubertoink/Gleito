@@ -1,13 +1,14 @@
 {
   "name": "gleito",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Lokaler Gleitzeitnachweis als Desktop-App",
   "main": "dist-electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-runner.cjs",
     "build": "tsc -b && vite build && esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --outdir=dist-electron --out-extension:.js=.cjs --external:electron",
-    "dist:win": "npm run build && electron-builder --win nsis",
+    "dist:win": "npm run build && electron-builder --win nsis --publish never",
+    "release:win": "npm run build && electron-builder --win nsis --publish always",
     "preview": "vite preview --host 127.0.0.1",
     "start": "npm run build && node scripts/run-electron.cjs",
     "test": "vitest run"
