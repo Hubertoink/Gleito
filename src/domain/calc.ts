@@ -49,6 +49,7 @@ export function defaultSettings(): Settings {
     warnAfterSix: true,
     roundToTenMinutes: false,
     pdfExportLayout: 'gleito',
+    setupGuideCompleted: false,
     weekdays: {
       mon: { targetMinutes: 8 * 60, workAllowed: true },
       tue: { targetMinutes: 8 * 60, workAllowed: true },

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Archive, CalendarDays, Download, Eye, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, X } from 'lucide-react';
+import { AlertTriangle, Archive, Bell, CalendarDays, CheckCircle2, Clock, Download, Eye, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, UserRound, X } from 'lucide-react';
 import type { AppDatabase } from './data/db';
 import { openDatabase } from './data/db';
 import {
@@ -38,6 +38,8 @@ type UpdateStatusPayload = {
   percent?: number;
   message?: string;
 };
+
+type SetupStep = 'person' | 'worktime' | 'warnings';
 
 const WEEKDAYS: Array<{ key: WeekdayKey; label: string }> = [
   { key: 'mon', label: 'Mo' },
@@ -102,6 +104,7 @@ export default function App() {
   const [toast, setToast] = useState<ToastState>(null);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [updateStatus, setUpdateStatus] = useState<UpdateStatusPayload | null>(null);
   const manualUpdateCheckRef = useRef(false);
@@ -151,7 +154,9 @@ export default function App() {
       candidateMonth < startMonth ? startMonth : candidateMonth || (todayMonth < startMonth ? startMonth : todayMonth);
     setDb(database);
     setStoredMonthKeys(monthKeys);
-    setSettings({ ...loadedSettings, trackingStartMonth: startMonth, currentWorkMonth });
+    const nextSettings = { ...loadedSettings, trackingStartMonth: startMonth, currentWorkMonth };
+    setSettings(nextSettings);
+    setShowSetupGuide(!nextSettings.setupGuideCompleted);
     setActiveMonth(initialMonth);
     setHomeMonth(currentWorkMonth);
     const monthData = database.loadMonth(initialMonth);
@@ -163,6 +168,10 @@ export default function App() {
     openDatabase().then((database) => {
       void hydrateFromDatabase(database);
     });
+  }, []);
+
+  useEffect(() => {
+    document.title = 'Gleito - Gleitzettel';
   }, []);
 
   useEffect(() => {
@@ -407,6 +416,17 @@ export default function App() {
     showToast('Alle Daten wurden zurueckgesetzt', 'info');
   }
 
+  async function completeSetupGuide(nextSettings: Settings) {
+    await saveSettings({ ...nextSettings, setupGuideCompleted: true });
+    setShowSetupGuide(false);
+    showToast('Einrichtung gespeichert', 'success');
+  }
+
+  async function skipSetupGuide() {
+    await saveSettings({ ...settings, setupGuideCompleted: true });
+    setShowSetupGuide(false);
+  }
+
   if (!db) {
     return <main className="loading">Gleitzettel wird vorbereitet...</main>;
   }
@@ -468,6 +488,7 @@ export default function App() {
           onExportBackup={exportBackup}
           onImportBackup={importBackup}
           onCheckForUpdates={triggerManualUpdateCheck}
+          onOpenSetupGuide={() => setShowSetupGuide(true)}
           onResetAllData={() => setShowResetModal(true)}
         />
       ) : (
@@ -654,6 +675,17 @@ export default function App() {
           </div>
         </div>
       )}
+      {showSetupGuide && (
+        <SetupGuideModal
+          settings={settings}
+          onClose={skipSetupGuide}
+          onComplete={completeSetupGuide}
+        />
+      )}
+      <footer className="app-footer">
+        <strong>Gleito - Gleitzettel</strong>
+        <span>Lokaler Gleitzeitnachweis</span>
+      </footer>
     </main>
   );
 }
@@ -850,6 +882,141 @@ function RemarkField({
   );
 }
 
+function SetupGuideModal({
+  settings,
+  onClose,
+  onComplete
+}: {
+  settings: Settings;
+  onClose: () => void | Promise<void>;
+  onComplete: (settings: Settings) => Promise<void>;
+}) {
+  const steps: Array<{ key: SetupStep; label: string; icon: ReactNode }> = [
+    { key: 'person', label: 'Person', icon: <UserRound size={16} /> },
+    { key: 'worktime', label: 'Arbeitszeit', icon: <Clock size={16} /> },
+    { key: 'warnings', label: 'Hinweise', icon: <Bell size={16} /> }
+  ];
+  const [stepIndex, setStepIndex] = useState(0);
+  const [draft, setDraft] = useState(settings);
+  const step = steps[stepIndex];
+  const isLastStep = stepIndex === steps.length - 1;
+
+  useEffect(() => {
+    setDraft(settings);
+  }, [settings]);
+
+  function update(patch: Partial<Settings>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function updateWeekday(key: WeekdayKey, patch: Partial<Settings['weekdays'][WeekdayKey]>) {
+    setDraft((current) => ({
+      ...current,
+      weekdays: { ...current.weekdays, [key]: { ...current.weekdays[key], ...patch } }
+    }));
+  }
+
+  function previousStep() {
+    setStepIndex((current) => Math.max(0, current - 1));
+  }
+
+  function nextStep() {
+    if (!isLastStep) {
+      setStepIndex((current) => Math.min(steps.length - 1, current + 1));
+      return;
+    }
+    void onComplete(draft);
+  }
+
+  async function skipSetup() {
+    await onClose();
+  }
+
+  return (
+    <div className="modal-backdrop setup-backdrop" onClick={onClose}>
+      <div className="modal-card setup-card" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-header setup-header">
+          <div>
+            <p className="eyebrow">Einrichtung</p>
+            <h2>Gleito vorbereiten</h2>
+          </div>
+          <button className="icon-button" onClick={onClose} aria-label="Schliessen">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="setup-steps" aria-label="Einrichtungsschritte">
+          {steps.map((item, index) => (
+            <button
+              type="button"
+              key={item.key}
+              className={`setup-step ${index === stepIndex ? 'active' : ''} ${index < stepIndex ? 'done' : ''}`}
+              onClick={() => setStepIndex(index)}
+            >
+              {index < stepIndex ? <CheckCircle2 size={16} /> : item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="setup-content">
+          {step.key === 'person' && (
+            <div className="setup-pane">
+              <label>Name<input value={draft.employeeName} onChange={(event) => update({ employeeName: event.currentTarget.value })} /></label>
+              <label>Dienststelle<input value={draft.dienststelle} onChange={(event) => update({ dienststelle: event.currentTarget.value })} /></label>
+              <label>Kostenstelle<input value={draft.kostenstelle} onChange={(event) => update({ kostenstelle: event.currentTarget.value })} /></label>
+              <label>Personalnummer<input value={draft.personalNumber} onChange={(event) => update({ personalNumber: event.currentTarget.value })} /></label>
+              <label>Amt / FB / EB<input value={draft.department} onChange={(event) => update({ department: event.currentTarget.value })} /></label>
+              <div className="setup-two-column">
+                <label>Startmonat<input type="month" value={draft.trackingStartMonth} onChange={(event) => update({ trackingStartMonth: event.currentTarget.value || draft.trackingStartMonth, currentWorkMonth: event.currentTarget.value || draft.currentWorkMonth })} /></label>
+                <label>Übertrag Start<DurationSettingInput value={formatMinutes(draft.initialCarryoverMinutes)} onCommit={(value) => update({ initialCarryoverMinutes: parseDuration(value) })} /></label>
+              </div>
+            </div>
+          )}
+
+          {step.key === 'worktime' && (
+            <div className="setup-pane">
+              <div className="setup-weekdays">
+                {WEEKDAYS.map((day) => (
+                  <div className="weekday-row" key={day.key}>
+                    <span>{day.label}</span>
+                    <DurationSettingInput
+                      value={minutesInput(draft.weekdays[day.key].targetMinutes)}
+                      onCommit={(value) => updateWeekday(day.key, { targetMinutes: Math.max(0, parseDuration(value)) })}
+                    />
+                    <label className="check"><input type="checkbox" checked={draft.weekdays[day.key].workAllowed} onChange={(event) => updateWeekday(day.key, { workAllowed: event.currentTarget.checked })} /> erlaubt</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step.key === 'warnings' && (
+            <div className="setup-pane setup-checks">
+              <label className="check"><input type="checkbox" checked={draft.warnBeforeSix} onChange={(event) => update({ warnBeforeSix: event.currentTarget.checked })} /> Warnung vor 06:00 Uhr</label>
+              <label className="check"><input type="checkbox" checked={draft.warnAfterSix} onChange={(event) => update({ warnAfterSix: event.currentTarget.checked })} /> Warnung nach 18:00 Uhr</label>
+              <label className="check"><input type="checkbox" checked={draft.roundToTenMinutes} onChange={(event) => update({ roundToTenMinutes: event.currentTarget.checked })} /> Kaufmännisch auf 10 Minuten runden</label>
+              <label className="check"><input type="checkbox" checked={draft.highlightOpenPlannedDays} onChange={(event) => update({ highlightOpenPlannedDays: event.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
+              <label>PDF-Exportlayout
+                <select value={draft.pdfExportLayout} onChange={(event) => update({ pdfExportLayout: event.currentTarget.value as Settings['pdfExportLayout'] })}>
+                  <option value="gleito">Gleito Standard</option>
+                  <option value="stadt-mannheim">Offizielles Stadtlayout Mannheim</option>
+                </select>
+              </label>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-actions setup-actions">
+          <button type="button" className="ghost-button" onClick={() => void skipSetup()}>Später</button>
+          <button type="button" className="ghost-button" onClick={previousStep} disabled={stepIndex === 0}>Zurück</button>
+          <button type="button" onClick={nextStep}>{isLastStep ? 'Einrichtung speichern' : 'Weiter'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SettingsPanel({
   settings,
   appVersion,
@@ -858,6 +1025,7 @@ function SettingsPanel({
   onExportBackup,
   onImportBackup,
   onCheckForUpdates,
+  onOpenSetupGuide,
   onResetAllData
 }: {
   settings: Settings;
@@ -867,6 +1035,7 @@ function SettingsPanel({
   onExportBackup: () => Promise<void>;
   onImportBackup: () => Promise<void>;
   onCheckForUpdates: () => Promise<void>;
+  onOpenSetupGuide: () => void;
   onResetAllData: () => void | Promise<void>;
 }) {
   const [showTrafficSettings, setShowTrafficSettings] = useState(false);
@@ -903,6 +1072,9 @@ function SettingsPanel({
         <div className="backup-actions">
           <button type="button" className="ghost-button" onClick={() => void onExportBackup()}>Daten exportieren</button>
           <button type="button" className="ghost-button" onClick={() => void onImportBackup()}>Daten importieren</button>
+        </div>
+        <div className="backup-actions">
+          <button type="button" className="ghost-button" onClick={onOpenSetupGuide}>Setup-Guide öffnen</button>
         </div>
         <div className="backup-actions">
           <button type="button" className="danger-button" onClick={() => void onResetAllData()}>Alle Daten zurücksetzen</button>

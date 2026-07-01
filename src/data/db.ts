@@ -25,9 +25,11 @@ function parseJson<T>(value: string | undefined, fallback: T): T {
 
 function mergeSettings(stored: Partial<Settings>): Settings {
   const defaults = defaultSettings();
+  const setupGuideCompleted = stored.setupGuideCompleted ?? Object.keys(stored).length > 0;
   return {
     ...defaults,
     ...stored,
+    setupGuideCompleted,
     weekdays: { ...defaults.weekdays, ...stored.weekdays },
     trafficThresholds: { ...defaults.trafficThresholds, ...stored.trafficThresholds }
   };

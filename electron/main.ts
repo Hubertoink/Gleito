@@ -61,7 +61,7 @@ async function createWindow() {
     height: 880,
     minWidth: 1040,
     minHeight: 720,
-    title: 'Gleitzettel',
+    title: 'Gleito - Gleitzettel',
     icon: path.join(app.getAppPath(), 'assets', 'Logo.ico'),
     backgroundColor: '#f7f7f3',
     autoHideMenuBar: true,

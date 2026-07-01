@@ -74,6 +74,7 @@ export interface Settings {
   warnAfterSix: boolean;
   roundToTenMinutes: boolean;
   pdfExportLayout: PdfExportLayout;
+  setupGuideCompleted: boolean;
 }
 
 export interface DayEntry {

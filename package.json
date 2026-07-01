@@ -1,6 +1,6 @@
 {
   "name": "gleito",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Lokaler Gleitzeitnachweis als Desktop-App",
   "main": "dist-electron/main.cjs",
   "type": "module",
@@ -22,7 +22,7 @@
   "license": "UNLICENSED",
   "build": {
     "appId": "de.hubertoink.gleito",
-    "productName": "Gleito",
+    "productName": "Gleito - Gleitzettel",
     "directories": {
       "output": "release"
     },
