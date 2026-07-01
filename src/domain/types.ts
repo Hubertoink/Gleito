@@ -55,6 +55,8 @@ export interface Settings {
   department: string;
   trackingStartMonth: string;
   currentWorkMonth: string;
+  lastViewedMonth: string;
+  openLastViewedMonthOnStart: boolean;
   holidayRegion: HolidayRegion;
   customHolidays: string[];
   weekdays: Record<WeekdayKey, WeekdaySetting>;

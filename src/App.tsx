@@ -146,16 +146,18 @@ export default function App() {
       currentWorkMonth: loadedSettings.currentWorkMonth,
       monthKeys
     });
-    const candidateMonth = preferredMonth ?? currentWorkMonth;
+    const startupMonth = loadedSettings.openLastViewedMonthOnStart ? loadedSettings.lastViewedMonth : undefined;
+    const candidateMonth = preferredMonth ?? startupMonth ?? currentWorkMonth;
     const initialMonth =
       candidateMonth < startMonth ? startMonth : candidateMonth || (todayMonth < startMonth ? startMonth : todayMonth);
     setDb(database);
     setStoredMonthKeys(monthKeys);
-    const nextSettings = { ...loadedSettings, trackingStartMonth: startMonth, currentWorkMonth };
+    const nextSettings = { ...loadedSettings, trackingStartMonth: startMonth, currentWorkMonth, lastViewedMonth: initialMonth };
     setSettings(nextSettings);
     setShowSetupGuide(!nextSettings.setupGuideCompleted);
     setActiveMonth(initialMonth);
     setHomeMonth(currentWorkMonth);
+    setLockedView(initialMonth < currentWorkMonth);
     const monthData = database.loadMonth(initialMonth);
     setEntries(monthData.days);
     setCarryIn(await carryInForMonth(database, { ...loadedSettings, trackingStartMonth: startMonth }, initialMonth));
@@ -237,6 +239,13 @@ export default function App() {
     carryInForMonth(db, settings, activeMonth).then(setCarryIn);
   }, [db, activeMonth, settings]);
 
+  useEffect(() => {
+    if (!db || settings.lastViewedMonth === activeMonth) return;
+    const nextSettings = { ...settings, lastViewedMonth: activeMonth };
+    setSettings(nextSettings);
+    void db.saveSettings(nextSettings);
+  }, [activeMonth, db, settings]);
+
   async function saveEntries(next: DayEntry[]) {
     setEntries(next);
     if (!db) return;
@@ -256,7 +265,8 @@ export default function App() {
       monthKeys: storedMonthKeys,
       preferStartMonthIfEarlier: next.trackingStartMonth !== settings.trackingStartMonth
     });
-    const nextSettings = { ...next, currentWorkMonth: resolvedCurrentWorkMonth };
+    const nextLastViewedMonth = next.lastViewedMonth < next.trackingStartMonth ? next.trackingStartMonth : next.lastViewedMonth;
+    const nextSettings = { ...next, currentWorkMonth: resolvedCurrentWorkMonth, lastViewedMonth: nextLastViewedMonth };
     setSettings(nextSettings);
     setHomeMonth(resolvedCurrentWorkMonth);
     if (resolvedCurrentWorkMonth < activeMonth) {
@@ -272,7 +282,7 @@ export default function App() {
   }
 
   async function persistCurrentWorkMonth(nextMonth: string) {
-    const nextSettings = { ...settings, currentWorkMonth: nextMonth };
+    const nextSettings = { ...settings, currentWorkMonth: nextMonth, lastViewedMonth: nextMonth };
     setSettings(nextSettings);
     setHomeMonth(nextMonth);
     if (!db) return;
@@ -1221,6 +1231,7 @@ function SettingsPanel({
         <label className="check"><input type="checkbox" checked={settings.warnAfterSix} onChange={(e) => update({ warnAfterSix: e.currentTarget.checked })} /> Warnung nach 18:00 Uhr</label>
         <label className="check"><input type="checkbox" checked={settings.roundToTenMinutes} onChange={(e) => update({ roundToTenMinutes: e.currentTarget.checked })} /> Kaufmännisch auf 10 Minuten runden</label>
         <label className="check"><input type="checkbox" checked={settings.hasCanteenAccess} onChange={(e) => update({ hasCanteenAccess: e.currentTarget.checked })} /> Zugang zu einer Kantine</label>
+        <label className="check"><input type="checkbox" checked={settings.openLastViewedMonthOnStart} onChange={(e) => update({ openLastViewedMonthOnStart: e.currentTarget.checked, lastViewedMonth: settings.lastViewedMonth || settings.currentWorkMonth })} /> Beim Start zuletzt angesehenen Monat öffnen</label>
       </div>
 
       <div className="panel">

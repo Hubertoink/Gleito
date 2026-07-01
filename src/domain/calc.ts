@@ -24,6 +24,8 @@ export function defaultSettings(): Settings {
     department: '',
     trackingStartMonth: currentMonth,
     currentWorkMonth: currentMonth,
+    lastViewedMonth: currentMonth,
+    openLastViewedMonthOnStart: false,
     holidayRegion: 'BW',
     customHolidays: [],
     initialCarryoverMinutes: 0,

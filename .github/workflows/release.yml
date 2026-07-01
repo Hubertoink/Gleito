@@ -57,7 +57,7 @@ jobs:
           gh release view "$env:RELEASE_TAG" > $null 2>&1
           if ($LASTEXITCODE -ne 0) {
             $version = $env:RELEASE_TAG.TrimStart('v')
-            gh release create "$env:RELEASE_TAG" --title "Gleito $version" --notes ""
+            gh release create "$env:RELEASE_TAG" --title "Gleito $version" --generate-notes
           }
         shell: pwsh
         env:
