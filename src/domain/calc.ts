@@ -121,7 +121,16 @@ export function requiredPauseMinutes(grossMinutes: number): number {
   return 30;
 }
 
-export function autoEndForStart(start: string, targetMinutes: number): string {
+function roundMinutesToTen(minutes: number): number {
+  return Math.floor((minutes + 5) / 10) * 10;
+}
+
+function automaticPauseMinutes(grossMinutes: number, roundToTenMinutes: boolean): number {
+  const pause = requiredPauseMinutes(grossMinutes);
+  return roundToTenMinutes ? roundMinutesToTen(pause) : pause;
+}
+
+export function autoEndForStart(start: string, targetMinutes: number, roundToTenMinutes = false): string {
   if (!start || targetMinutes <= 0) return '';
   let pause = targetMinutes > 6 * 60 ? 30 : 0;
   for (let i = 0; i < 3; i += 1) {
@@ -129,6 +138,7 @@ export function autoEndForStart(start: string, targetMinutes: number): string {
     if (nextPause === pause) break;
     pause = nextPause;
   }
+  if (roundToTenMinutes) pause = roundMinutesToTen(pause);
   return addClockMinutes(start, targetMinutes + pause);
 }
 
@@ -152,7 +162,7 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
   const start = parseTime(entry.start);
   const end = parseTime(entry.end);
   const gross = start !== null && end !== null ? Math.max(0, end - start) : 0;
-  const automaticPause = gross > 0 ? requiredPauseMinutes(gross) : 0;
+  const automaticPause = gross > 0 ? automaticPauseMinutes(gross, settings.roundToTenMinutes) : 0;
   const manualPause = parseTime(entry.pause);
   const pauseMinutes = entry.pauseManual && manualPause !== null ? manualPause : automaticPause;
   const actualMinutes =

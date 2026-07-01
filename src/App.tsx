@@ -328,7 +328,7 @@ export default function App() {
     const patch: Partial<DayEntry> = { [field]: rounded };
     const day = calculated.days.find((item) => item.date === entry.date);
     if (field === 'start' && rounded && !entry.endManual && day?.targetMinutes) {
-      patch.end = autoEndForStart(rounded, day.targetMinutes);
+      patch.end = autoEndForStart(rounded, day.targetMinutes, settings.roundToTenMinutes);
       patch.endManual = false;
     }
     if (field === 'end') patch.endManual = Boolean(rounded);

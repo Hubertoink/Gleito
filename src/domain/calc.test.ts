@@ -35,6 +35,7 @@ describe('time rules', () => {
     expect(requiredPauseMinutes(6 * 60 + 1)).toBe(30);
     expect(requiredPauseMinutes(9 * 60 + 45)).toBe(45);
     expect(autoEndForStart('10:00', 8 * 60)).toBe('18:30');
+    expect(autoEndForStart('08:00', 9 * 60 + 15, true)).toBe('18:05');
   });
 });
 
@@ -196,5 +197,25 @@ describe('month calculation', () => {
     expect(result.summary.trafficLight).toBe('yellow');
     result = calculateMonth([], settings, '2026-07', -(11 * 60), true);
     expect(result.summary.trafficLight).toBe('red');
+  });
+
+  it('rounds the automatic 45 minute pause to 50 minutes when ten-minute rounding is enabled', () => {
+    const settings = defaultSettings();
+    settings.trackingStartMonth = '2026-07';
+    settings.roundToTenMinutes = true;
+    settings.weekdays.mon.targetMinutes = 9 * 60;
+
+    const result = calculateMonth(
+      [{ ...emptyEntry('2026-07-06'), start: '08:00', end: '17:45' }],
+      settings,
+      '2026-07',
+      0,
+      true
+    );
+    const day = result.days.find((entry) => entry.date === '2026-07-06');
+
+    expect(day?.pause).toBe('0:50');
+    expect(day?.actualMinutes).toBe(8 * 60 + 55);
+    expect(day?.minusMinutes).toBe(5);
   });
 });
