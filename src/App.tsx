@@ -255,8 +255,14 @@ export default function App() {
     await db.saveSettings(nextSettings);
   }
 
+  function isEntryAllowed(date: string) {
+    const day = calculated.days.find((item) => item.date === date);
+    return day ? settings.weekdays[day.weekday].workAllowed : true;
+  }
+
   function updateEntry(date: string, patch: Partial<DayEntry>) {
     if (!editable) return;
+    if (!isEntryAllowed(date)) return;
     const next = normalizeMonthEntries(entries, activeMonth).map((entry) =>
       entry.date === date ? { ...entry, ...patch } : entry
     );
@@ -507,10 +513,13 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {calculated.days.map((day) => (
+                {calculated.days.map((day) => {
+                  const entryAllowed = settings.weekdays[day.weekday].workAllowed;
+                  const entryDisabled = !editable || !entryAllowed;
+                  return (
                   <tr
                     key={day.date}
-                    className={`${day.weekday === 'sat' || day.weekday === 'sun' ? 'weekend' : ''} ${day.holidayName ? 'holiday' : ''} ${day.date === todayDateKey ? 'today' : ''} ${
+                    className={`${day.weekday === 'sat' || day.weekday === 'sun' ? 'weekend' : ''} ${!entryAllowed ? 'blocked-day' : ''} ${day.holidayName ? 'holiday' : ''} ${day.date === todayDateKey ? 'today' : ''} ${
                       settings.highlightOpenPlannedDays &&
                       day.targetMinutes > 0 &&
                       !day.start &&
@@ -525,7 +534,7 @@ export default function App() {
                     <td>
                       <input
                         ref={setFieldRef(day.date, 'start')}
-                        disabled={!editable}
+                        disabled={entryDisabled}
                         type="time"
                         value={day.start}
                         onChange={(event) => updateEntry(day.date, { start: event.currentTarget.value })}
@@ -535,7 +544,7 @@ export default function App() {
                     <td>
                       <input
                         ref={setFieldRef(day.date, 'end')}
-                        disabled={!editable}
+                        disabled={entryDisabled}
                         type="time"
                         value={day.end}
                         onChange={(event) => updateEntry(day.date, { end: event.currentTarget.value, endManual: Boolean(event.currentTarget.value) })}
@@ -545,7 +554,7 @@ export default function App() {
                     <td>
                       <input
                         ref={setFieldRef(day.date, 'pause')}
-                        disabled={!editable}
+                        disabled={entryDisabled}
                         className="duration"
                         value={day.pause}
                         placeholder="auto"
@@ -566,7 +575,7 @@ export default function App() {
                     <td>
                       <RemarkField
                         inputRef={setFieldRef(day.date, 'remark')}
-                        disabled={!editable}
+                        disabled={entryDisabled}
                         value={day.remark}
                         placeholder={day.holidayName}
                         options={REMARKS}
@@ -586,7 +595,8 @@ export default function App() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </section>

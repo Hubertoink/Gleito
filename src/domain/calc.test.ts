@@ -145,6 +145,18 @@ describe('month calculation', () => {
     expect(day?.minusMinutes).toBe(0);
   });
 
+  it('ignores time entries on weekdays that are not allowed for work', () => {
+    const settings = defaultSettings();
+    settings.trackingStartMonth = '2026-07';
+    settings.weekdays.sat.workAllowed = false;
+    const result = calculateMonth([{ ...emptyEntry('2026-07-04'), start: '10:00', end: '18:30' }], settings, '2026-07', 0, true);
+    const day = result.days.find((entry) => entry.date === '2026-07-04');
+    expect(day?.targetMinutes).toBe(0);
+    expect(day?.actualMinutes).toBe(0);
+    expect(day?.plusMinutes).toBe(0);
+    expect(result.summary.plusMinutes).toBe(0);
+  });
+
   it('can ignore untouched target days in explicit-only minus mode', () => {
     const settings = defaultSettings();
     settings.trackingStartMonth = '2026-07';

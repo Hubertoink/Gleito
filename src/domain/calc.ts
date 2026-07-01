@@ -116,8 +116,9 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
   const isHolidayRemark = entry.remark === 'Feiertag';
   const hasAbsenceRemark = ABSENCE_REMARKS.has(entry.remark);
   const holidayBlocksTarget = Boolean(holidayName) || isHolidayRemark;
+  const workAllowed = weekdaySetting.workAllowed;
   const beforeTrackingStart = entryMonthKey < settings.trackingStartMonth;
-  const targetMinutes = beforeTrackingStart || hasAbsenceRemark || holidayBlocksTarget ? 0 : weekdaySetting.targetMinutes;
+  const targetMinutes = beforeTrackingStart || !workAllowed || hasAbsenceRemark || holidayBlocksTarget ? 0 : weekdaySetting.targetMinutes;
   const start = parseTime(entry.start);
   const end = parseTime(entry.end);
   const gross = start !== null && end !== null ? Math.max(0, end - start) : 0;
@@ -125,7 +126,7 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
   const manualPause = parseTime(entry.pause);
   const pauseMinutes = entry.pauseManual && manualPause !== null ? manualPause : automaticPause;
   const actualMinutes =
-    isCompDay || holidayBlocksTarget
+    !workAllowed || isCompDay || holidayBlocksTarget
       ? 0
       : isSickDay || isVacationDay
         ? targetMinutes

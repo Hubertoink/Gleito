@@ -470,6 +470,15 @@ h2 {
   background: rgba(251, 243, 242, calc(var(--table-opacity) * 0.92));
 }
 
+.month-table tr.blocked-day {
+  color: #77746b;
+}
+
+.month-table tr.blocked-day input,
+.month-table tr.blocked-day button {
+  cursor: not-allowed;
+}
+
 .month-table tr.holiday {
   background: rgba(238, 246, 246, calc(var(--table-opacity) * 0.92));
 }
