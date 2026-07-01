@@ -3,11 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Git tag to build and publish"
+        description: "Git tag to build and publish, for example v1.0.0"
         required: true
         type: string
 

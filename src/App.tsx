@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Archive, Bell, CalendarDays, CheckCircle2, ChevronDown, Clock, Download, Eye, FileSpreadsheet, FileText, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, UserRound, X } from 'lucide-react';
+import { AlertTriangle, Archive, ArrowRight, Bell, CalendarDays, CheckCircle2, ChevronDown, Clock, Download, Eye, FileSpreadsheet, FileText, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, UserRound, X } from 'lucide-react';
 import type { AppDatabase } from './data/db';
 import { openDatabase } from './data/db';
 import {
@@ -13,7 +13,7 @@ import {
   normalizeMonthEntries,
   resolveCurrentWorkMonth
 } from './domain/calc';
-import type { DayEntry, Settings, WeekdayKey } from './domain/types';
+import type { CalculatedDay, DayEntry, Settings, WeekdayKey } from './domain/types';
 import { holidayRegions } from './domain/holidays';
 import { formatMinutes, roundClockToTen, roundDurationToTen } from './domain/time';
 import { buildPrintHtml } from './pdf';
@@ -42,6 +42,10 @@ type UpdateStatusPayload = {
 
 type SetupStep = 'person' | 'worktime' | 'warnings';
 
+type WorkTimeSuggestion = Pick<DayEntry, 'start' | 'end' | 'pause' | 'pauseManual' | 'endManual'> & {
+  confidence: number;
+};
+
 const WEEKDAYS: Array<{ key: WeekdayKey; label: string }> = [
   { key: 'mon', label: 'Mo' },
   { key: 'tue', label: 'Di' },
@@ -53,6 +57,7 @@ const WEEKDAYS: Array<{ key: WeekdayKey; label: string }> = [
 ];
 
 const REMARKS = ['', 'Urlaub', 'krank', 'Zeitkonto', 'Ausgleichstag', 'Feiertag', 'Rufbereitschaft'];
+const WEEKDAY_KEYS_BY_DATE_INDEX: WeekdayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 function minutesInput(minutes: number): string {
   return formatMinutes(minutes).padStart(5, '0');
@@ -79,6 +84,85 @@ function monthRange(fromKey: string, toKey: string): string[] {
     cursor = shiftMonth(cursor, 1);
   }
   return result;
+}
+
+function weekdayKeyForDate(date: string): WeekdayKey {
+  return WEEKDAY_KEYS_BY_DATE_INDEX[new Date(`${date}T00:00:00`).getDay()];
+}
+
+function collectWorkTimeSources(
+  db: AppDatabase,
+  activeMonth: string,
+  entries: DayEntry[],
+  storedMonthKeys: string[]
+): DayEntry[] {
+  const monthKeys = Array.from(new Set([...storedMonthKeys.filter((key) => key < activeMonth), activeMonth])).sort();
+  return monthKeys.flatMap((monthKey) =>
+    monthKey === activeMonth ? normalizeMonthEntries(entries, activeMonth) : db.loadMonth(monthKey).days
+  );
+}
+
+function mostFrequentUnique<T>(items: T[], keyForItem: (item: T) => string): { key: string; count: number; items: T[] } | null {
+  const groups = new Map<string, { count: number; items: T[] }>();
+  for (const item of items) {
+    const key = keyForItem(item);
+    const group = groups.get(key);
+    if (group) {
+      group.count += 1;
+      group.items.push(item);
+    } else {
+      groups.set(key, { count: 1, items: [item] });
+    }
+  }
+
+  const ranked = [...groups.entries()].sort((a, b) => b[1].count - a[1].count);
+  const best = ranked[0];
+  const runnerUp = ranked[1];
+  if (!best || best[1].count < 2 || (runnerUp && runnerUp[1].count === best[1].count)) return null;
+  return { key: best[0], count: best[1].count, items: best[1].items };
+}
+
+function buildWorkTimeSuggestions(
+  db: AppDatabase,
+  activeMonth: string,
+  entries: DayEntry[],
+  days: CalculatedDay[],
+  settings: Settings,
+  storedMonthKeys: string[]
+): Map<string, WorkTimeSuggestion> {
+  if (!settings.autoSuggestWorkTimes) return new Map();
+
+  const sources = collectWorkTimeSources(db, activeMonth, entries, storedMonthKeys)
+    .filter((entry) => entry.start && entry.end && !entry.remark)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const suggestions = new Map<string, WorkTimeSuggestion>();
+
+  for (const day of days) {
+    if (day.targetMinutes <= 0 || day.start || day.end || day.remark || (day.pauseManual && day.pause)) continue;
+    const previousSameWeekday = sources.filter(
+      (source) => source.date < day.date && weekdayKeyForDate(source.date) === day.weekday
+    );
+    const bestStart = mostFrequentUnique(previousSameWeekday, (source) => source.start);
+    if (!bestStart) continue;
+
+    const bestEnd = mostFrequentUnique(bestStart.items, (source) => source.end);
+    if (!bestEnd) continue;
+
+    const bestManualPause = mostFrequentUnique(
+      bestEnd.items.filter((source) => source.pauseManual && source.pause),
+      (source) => source.pause
+    );
+    suggestions.set(day.date, {
+      start: bestStart.key,
+      end: bestEnd.key,
+      pause: bestManualPause?.key ?? '',
+      pauseManual: Boolean(bestManualPause),
+      endManual: true,
+      confidence: bestEnd.count
+    });
+  }
+
+  return suggestions;
 }
 
 async function carryInForMonth(db: AppDatabase, settings: Settings, key: string): Promise<number> {
@@ -126,6 +210,13 @@ export default function App() {
   const calculated = useMemo(
     () => calculateMonth(entries, settings, activeMonth, carryIn, editable),
     [entries, settings, activeMonth, carryIn, editable]
+  );
+  const workTimeSuggestions = useMemo(
+    () =>
+      db
+        ? buildWorkTimeSuggestions(db, activeMonth, entries, calculated.days, settings, storedMonthKeys)
+        : new Map<string, WorkTimeSuggestion>(),
+    [db, activeMonth, entries, calculated.days, settings, storedMonthKeys]
   );
   const backgroundSource = useMemo(() => {
     if (!settings.backgroundEnabled) return '';
@@ -309,6 +400,16 @@ export default function App() {
         ? { remark, start: '', end: '', pause: '', pauseManual: false, endManual: false }
         : { remark };
     updateEntry(date, patch);
+  }
+
+  function applyWorkTimeSuggestion(date: string, suggestion: WorkTimeSuggestion) {
+    updateEntry(date, {
+      start: suggestion.start,
+      end: suggestion.end,
+      pause: suggestion.pause,
+      pauseManual: suggestion.pauseManual,
+      endManual: suggestion.endManual
+    });
   }
 
   function setFieldRef(date: string, field: 'start' | 'end' | 'pause' | 'remark') {
@@ -613,6 +714,7 @@ export default function App() {
                 {calculated.days.map((day) => {
                   const entryAllowed = settings.weekdays[day.weekday].workAllowed;
                   const entryDisabled = !editable || !entryAllowed;
+                  const suggestion = workTimeSuggestions.get(day.date);
                   return (
                   <tr
                     key={day.date}
@@ -627,43 +729,100 @@ export default function App() {
                     }`}
                   >
                     <td>{Number(day.date.slice(-2))}</td>
-                    <td>{day.weekdayLabel}</td>
                     <td>
-                      <input
-                        ref={setFieldRef(day.date, 'start')}
-                        disabled={entryDisabled}
-                        type="time"
-                        value={day.start}
-                        onChange={(event) => updateEntry(day.date, { start: event.currentTarget.value })}
-                        onBlur={(event) => handleTimeBlur(day, 'start', event.currentTarget.value)}
-                      />
+                      <span className="weekday-cell">
+                        <span>{day.weekdayLabel}</span>
+                        {suggestion && !entryDisabled && (
+                          <button
+                            type="button"
+                            className="suggestion-button"
+                            onClick={() => applyWorkTimeSuggestion(day.date, suggestion)}
+                            aria-label={`Vorschlag uebernehmen: ${suggestion.start} bis ${suggestion.end}`}
+                            title={`${suggestion.start}-${suggestion.end}${suggestion.pauseManual ? `, Pause ${suggestion.pause}` : ', Pause auto'} (${suggestion.confidence}x)`}
+                          >
+                            <ArrowRight size={14} />
+                          </button>
+                        )}
+                      </span>
                     </td>
                     <td>
-                      <input
-                        ref={setFieldRef(day.date, 'end')}
-                        disabled={entryDisabled}
-                        type="time"
-                        value={day.end}
-                        onChange={(event) => updateEntry(day.date, { end: event.currentTarget.value, endManual: Boolean(event.currentTarget.value) })}
-                        onBlur={(event) => handleTimeBlur(day, 'end', event.currentTarget.value)}
-                      />
+                      <div className="time-field">
+                        <input
+                          ref={setFieldRef(day.date, 'start')}
+                          disabled={entryDisabled}
+                          type="time"
+                          value={day.start}
+                          onChange={(event) => updateEntry(day.date, { start: event.currentTarget.value })}
+                          onBlur={(event) => handleTimeBlur(day, 'start', event.currentTarget.value)}
+                        />
+                        {day.start && !entryDisabled && (
+                          <button
+                            type="button"
+                            className="time-clear-button"
+                            aria-label="Beginn leeren"
+                            title="Beginn leeren"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => updateEntry(day.date, { start: '' })}
+                          >
+                            <X size={13} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td>
-                      <input
-                        ref={setFieldRef(day.date, 'pause')}
-                        disabled={entryDisabled}
-                        className="duration"
-                        value={day.pause}
-                        placeholder="auto"
-                        onChange={(event) => updateEntry(day.date, { pause: event.currentTarget.value, pauseManual: true })}
-                        onBlur={(event) => handlePauseBlur(day, event.currentTarget.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Tab' && !event.shiftKey) {
-                            event.preventDefault();
-                            focusNextWorkday(day.date);
-                          }
-                        }}
-                      />
+                      <div className="time-field">
+                        <input
+                          ref={setFieldRef(day.date, 'end')}
+                          disabled={entryDisabled}
+                          type="time"
+                          value={day.end}
+                          onChange={(event) => updateEntry(day.date, { end: event.currentTarget.value, endManual: Boolean(event.currentTarget.value) })}
+                          onBlur={(event) => handleTimeBlur(day, 'end', event.currentTarget.value)}
+                        />
+                        {day.end && !entryDisabled && (
+                          <button
+                            type="button"
+                            className="time-clear-button"
+                            aria-label="Ende leeren"
+                            title="Ende leeren"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => updateEntry(day.date, { end: '', endManual: false })}
+                          >
+                            <X size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="time-field">
+                        <input
+                          ref={setFieldRef(day.date, 'pause')}
+                          disabled={entryDisabled}
+                          className="duration"
+                          value={day.pause}
+                          placeholder="auto"
+                          onChange={(event) => updateEntry(day.date, { pause: event.currentTarget.value, pauseManual: true })}
+                          onBlur={(event) => handlePauseBlur(day, event.currentTarget.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Tab' && !event.shiftKey) {
+                              event.preventDefault();
+                              focusNextWorkday(day.date);
+                            }
+                          }}
+                        />
+                        {day.pause && !entryDisabled && (
+                          <button
+                            type="button"
+                            className="time-clear-button time-clear-button-pause"
+                            aria-label="Pause leeren"
+                            title="Pause leeren"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => updateEntry(day.date, { pause: '', pauseManual: false })}
+                          >
+                            <X size={13} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td>{day.actualMinutes ? formatMinutes(day.actualMinutes) : ''}</td>
                     <td>{day.targetMinutes ? formatMinutes(day.targetMinutes) : ''}</td>
@@ -1096,6 +1255,7 @@ function SetupGuideModal({
               <label className="check"><input type="checkbox" checked={draft.warnAfterSix} onChange={(event) => update({ warnAfterSix: event.currentTarget.checked })} /> Warnung nach 18:00 Uhr</label>
               <label className="check"><input type="checkbox" checked={draft.roundToTenMinutes} onChange={(event) => update({ roundToTenMinutes: event.currentTarget.checked })} /> Kaufmännisch auf 10 Minuten runden</label>
               <label className="check"><input type="checkbox" checked={draft.highlightOpenPlannedDays} onChange={(event) => update({ highlightOpenPlannedDays: event.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
+              <label className="check"><input type="checkbox" checked={draft.autoSuggestWorkTimes} onChange={(event) => update({ autoSuggestWorkTimes: event.currentTarget.checked })} /> Wiederkehrende Arbeitszeiten vorschlagen</label>
               <label className="check"><input type="checkbox" checked={draft.hasCanteenAccess} onChange={(event) => update({ hasCanteenAccess: event.currentTarget.checked })} /> Zugang zu einer Kantine</label>
               <label>PDF-Exportlayout
                 <select value={draft.pdfExportLayout} onChange={(event) => update({ pdfExportLayout: event.currentTarget.value as Settings['pdfExportLayout'] })}>
@@ -1256,6 +1416,7 @@ function SettingsPanel({
         <label className="check"><input type="checkbox" checked={settings.backgroundEnabled} onChange={(e) => update({ backgroundEnabled: e.currentTarget.checked })} /> Hintergrundbild anzeigen</label>
         <label className="check"><input type="checkbox" checked={settings.translucentSurfaces} onChange={(e) => update({ translucentSurfaces: e.currentTarget.checked })} /> Kacheltransparenz aktivieren</label>
         <label className="check"><input type="checkbox" checked={settings.highlightOpenPlannedDays} onChange={(e) => update({ highlightOpenPlannedDays: e.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
+        <label className="check"><input type="checkbox" checked={settings.autoSuggestWorkTimes} onChange={(e) => update({ autoSuggestWorkTimes: e.currentTarget.checked })} /> Wiederkehrende Arbeitszeiten vorschlagen</label>
         <label>PDF-Exportlayout
           <select value={settings.pdfExportLayout} onChange={(e) => update({ pdfExportLayout: e.currentTarget.value as Settings['pdfExportLayout'] })}>
             <option value="gleito">Gleito Standard</option>

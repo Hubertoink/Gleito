@@ -469,6 +469,72 @@ h2 {
   padding: 4px 6px;
 }
 
+.time-field {
+  position: relative;
+}
+
+.time-clear-button {
+  position: absolute;
+  right: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 14px;
+  width: 14px;
+  min-height: 14px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #d92c20;
+  min-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 0;
+}
+
+.time-field:hover .time-clear-button,
+.time-field:focus-within .time-clear-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.time-clear-button:hover,
+.time-clear-button:focus-visible {
+  border: 0;
+  background: transparent;
+  color: #b91f16;
+}
+
+.time-clear-button-pause {
+  right: 20px;
+}
+
+.weekday-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 44px;
+}
+
+.suggestion-button {
+  min-width: 22px;
+  width: 22px;
+  min-height: 22px;
+  height: 22px;
+  padding: 0;
+  border-color: #d4d2ca;
+  background: #efeee8;
+  color: #77746b;
+}
+
+.suggestion-button:hover,
+.suggestion-button:focus-visible {
+  border-color: #9a978d;
+  background: #e4e2da;
+  color: #2f2e2a;
+}
+
 .remark-field {
   position: relative;
   display: grid;

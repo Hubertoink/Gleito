@@ -42,6 +42,7 @@ export function defaultSettings(): Settings {
     backgroundEnabled: true,
     translucentSurfaces: true,
     highlightOpenPlannedDays: false,
+    autoSuggestWorkTimes: true,
     backgroundImage: 'none',
     rotateBackgrounds: false,
     surfaceOpacity: 0.92,

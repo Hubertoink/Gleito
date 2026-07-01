@@ -67,6 +67,7 @@ export interface Settings {
   backgroundEnabled: boolean;
   translucentSurfaces: boolean;
   highlightOpenPlannedDays: boolean;
+  autoSuggestWorkTimes: boolean;
   backgroundImage: BackgroundImageOption;
   rotateBackgrounds: boolean;
   surfaceOpacity: number;
