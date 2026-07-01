@@ -1030,8 +1030,8 @@ function MonthSummaryBand({
           <strong>{formatMinutes(summary.carryInMinutes)}</strong>
         </div>
         <div className="summary-metric">
-          <span>Summe +/-</span>
-          <strong>{formatMinutes(summary.monthDeltaMinutes)}</strong>
+          <span>Saldo</span>
+          <strong>{formatMinutes(summary.saldoMinutes)}</strong>
         </div>
         <div className={`summary-inline-item ampel ${summary.trafficLight}`}>
           <span>Ampel</span>

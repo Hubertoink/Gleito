@@ -128,14 +128,14 @@ Der Workflow `.github/workflows/release.yml` laeuft bei Tags `v*`. Er prueft, da
 Typischer Release-Ablauf:
 
 ```powershell
-npm version 1.0.1 --no-git-tag-version
+npm version 1.0.2 --no-git-tag-version
 npm run build
 npm test
 git add package.json package-lock.json src electron .github
-git commit -m "Release v1.0.1"
-git tag v1.0.1
+git commit -m "Release v1.0.2"
+git tag v1.0.2
 git push origin main
-git push origin v1.0.1
+git push origin v1.0.2
 ```
 
 ## Entwicklung
