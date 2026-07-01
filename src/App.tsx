@@ -46,6 +46,12 @@ type WorkTimeSuggestion = Pick<DayEntry, 'start' | 'end' | 'pause' | 'pauseManua
   confidence: number;
 };
 
+type SuggestionTooltipState = {
+  label: string;
+  top: number;
+  left: number;
+} | null;
+
 const WEEKDAYS: Array<{ key: WeekdayKey; label: string }> = [
   { key: 'mon', label: 'Mo' },
   { key: 'tue', label: 'Di' },
@@ -194,6 +200,7 @@ export default function App() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [updateStatus, setUpdateStatus] = useState<UpdateStatusPayload | null>(null);
+  const [suggestionTooltip, setSuggestionTooltip] = useState<SuggestionTooltipState>(null);
   const manualUpdateCheckRef = useRef(false);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -270,6 +277,17 @@ export default function App() {
     const timeout = window.setTimeout(() => setToast(null), 3200);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    if (!suggestionTooltip) return;
+    const dismissTooltip = () => setSuggestionTooltip(null);
+    window.addEventListener('scroll', dismissTooltip, true);
+    window.addEventListener('resize', dismissTooltip);
+    return () => {
+      window.removeEventListener('scroll', dismissTooltip, true);
+      window.removeEventListener('resize', dismissTooltip);
+    };
+  }, [suggestionTooltip]);
 
   useEffect(() => {
     if (!window.gleito) return;
@@ -403,6 +421,7 @@ export default function App() {
   }
 
   function applyWorkTimeSuggestion(date: string, suggestion: WorkTimeSuggestion) {
+    hideSuggestionTooltip();
     updateEntry(date, {
       start: suggestion.start,
       end: suggestion.end,
@@ -410,6 +429,23 @@ export default function App() {
       pauseManual: suggestion.pauseManual,
       endManual: suggestion.endManual
     });
+  }
+
+  function suggestionTooltipLabel(suggestion: WorkTimeSuggestion) {
+    return `${suggestion.start}-${suggestion.end}${suggestion.pauseManual ? `, Pause ${suggestion.pause}` : ', Pause auto'} (${suggestion.confidence}x)`;
+  }
+
+  function showSuggestionTooltip(button: HTMLButtonElement, suggestion: WorkTimeSuggestion) {
+    const rect = button.getBoundingClientRect();
+    setSuggestionTooltip({
+      label: suggestionTooltipLabel(suggestion),
+      top: rect.top + rect.height / 2,
+      left: rect.right + 8
+    });
+  }
+
+  function hideSuggestionTooltip() {
+    setSuggestionTooltip(null);
   }
 
   function setFieldRef(date: string, field: 'start' | 'end' | 'pause' | 'remark') {
@@ -737,8 +773,11 @@ export default function App() {
                             type="button"
                             className="suggestion-button"
                             onClick={() => applyWorkTimeSuggestion(day.date, suggestion)}
+                            onMouseEnter={(event) => showSuggestionTooltip(event.currentTarget, suggestion)}
+                            onMouseLeave={hideSuggestionTooltip}
+                            onFocus={(event) => showSuggestionTooltip(event.currentTarget, suggestion)}
+                            onBlur={hideSuggestionTooltip}
                             aria-label={`Vorschlag uebernehmen: ${suggestion.start} bis ${suggestion.end}`}
-                            title={`${suggestion.start}-${suggestion.end}${suggestion.pauseManual ? `, Pause ${suggestion.pause}` : ', Pause auto'} (${suggestion.confidence}x)`}
                           >
                             <ArrowRight size={14} />
                           </button>
@@ -872,6 +911,17 @@ export default function App() {
           </div>
         </div>
       )}
+      {suggestionTooltip &&
+        createPortal(
+          <div
+            className="suggestion-tooltip"
+            role="tooltip"
+            style={{ top: `${suggestionTooltip.top}px`, left: `${suggestionTooltip.left}px` }}
+          >
+            {suggestionTooltip.label}
+          </div>,
+          document.body
+        )}
       {showCloseModal && (
         <div className="modal-backdrop" onClick={() => setShowCloseModal(false)}>
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
