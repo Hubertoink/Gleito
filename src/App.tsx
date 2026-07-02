@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Archive, ArrowRight, Bell, CalendarDays, CheckCircle2, ChevronDown, Clock, Download, Eye, FileSpreadsheet, FileText, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, UserRound, X } from 'lucide-react';
+import { AlertTriangle, Archive, ArrowLeft, ArrowRight, Bell, CalendarDays, CheckCircle2, ChevronDown, Clock, Download, Eye, FileSpreadsheet, FileText, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, UserRound, X } from 'lucide-react';
 import type { AppDatabase } from './data/db';
 import { openDatabase } from './data/db';
 import {
@@ -621,6 +621,13 @@ export default function App() {
     return <main className="loading">Gleitzettel wird vorbereitet...</main>;
   }
 
+  const monthButtonReturnsToViewedMonth = view === 'settings';
+  const monthButtonReturnsToCurrentMonth = view === 'month' && lockedView;
+  const monthButtonClassName = monthButtonReturnsToViewedMonth || monthButtonReturnsToCurrentMonth
+    ? 'return-button'
+    : 'active';
+  const monthButtonTitle = monthButtonReturnsToViewedMonth ? 'Zurueck' : 'Monat';
+
   return (
     <main
       className="app-shell"
@@ -639,15 +646,20 @@ export default function App() {
         <div className="actions">
           <img className="mannheim-logo" src={mannheimLogo} alt="Stadt Mannheim" />
           <button
-            className={lockedView ? 'return-button' : view === 'month' ? 'active' : ''}
+            className={monthButtonClassName}
             onClick={() => {
+              if (monthButtonReturnsToViewedMonth) {
+                setView('month');
+                return;
+              }
               setView('month');
               setActiveMonth(homeMonth);
               setLockedView(false);
             }}
-            title="Monat"
+            title={monthButtonTitle}
           >
-            <CalendarDays size={18} /> {lockedView ? '-> Monat' : 'Monat'}
+            {monthButtonReturnsToViewedMonth ? <ArrowLeft size={18} /> : <CalendarDays size={18} />}
+            {monthButtonReturnsToViewedMonth ? 'Zurueck' : monthButtonReturnsToCurrentMonth ? '-> Monat' : 'Monat'}
           </button>
           <label className="archive-picker" title="Archiv">
             <Archive size={16} />
