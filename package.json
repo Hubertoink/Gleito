@@ -1,6 +1,6 @@
 {
   "name": "gleito",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Lokaler Gleitzeitnachweis als Desktop-App",
   "main": "dist-electron/main.cjs",
   "type": "module",

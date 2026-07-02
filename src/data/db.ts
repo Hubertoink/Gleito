@@ -23,12 +23,17 @@ function parseJson<T>(value: string | undefined, fallback: T): T {
   }
 }
 
-function mergeSettings(stored: Partial<Settings>): Settings {
+type LegacyStoredSettings = Partial<Settings> & { roundToTenMinutes?: boolean };
+
+function mergeSettings(stored: LegacyStoredSettings): Settings {
   const defaults = defaultSettings();
+  const { roundToTenMinutes, ...storedSettings } = stored;
   const setupGuideCompleted = stored.setupGuideCompleted ?? Object.keys(stored).length > 0;
+  const roundingMode = stored.roundingMode ?? (roundToTenMinutes ? '10' : defaults.roundingMode);
   return {
     ...defaults,
-    ...stored,
+    ...storedSettings,
+    roundingMode,
     setupGuideCompleted,
     weekdays: { ...defaults.weekdays, ...stored.weekdays },
     trafficThresholds: { ...defaults.trafficThresholds, ...stored.trafficThresholds }
@@ -59,7 +64,7 @@ class SqlAppDatabase implements AppDatabase {
   loadSettings(): Settings {
     const rows = this.db.exec('SELECT json FROM settings WHERE id = 1');
     const json = rows[0]?.values[0]?.[0] as string | undefined;
-    return mergeSettings(parseJson<Partial<Settings>>(json, {}));
+    return mergeSettings(parseJson<LegacyStoredSettings>(json, {}));
   }
 
   async saveSettings(settings: Settings): Promise<void> {

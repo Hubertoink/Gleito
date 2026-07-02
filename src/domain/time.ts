@@ -21,23 +21,37 @@ export function formatClock(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 }
 
-export function roundClockToTen(value: string): string {
+export function roundMinutes(minutes: number, stepMinutes: number): number {
+  return Math.floor((minutes + stepMinutes / 2) / stepMinutes) * stepMinutes;
+}
+
+export function roundClock(value: string, stepMinutes: number): string {
   const minutes = parseTime(value);
   if (minutes === null) return value;
-  const rounded = Math.floor((minutes + 5) / 10) * 10;
-  return formatClock(rounded);
+  return formatClock(roundMinutes(minutes, stepMinutes));
+}
+
+export function roundDuration(value: string, stepMinutes: number): string {
+  const minutes = parseTime(value);
+  if (minutes === null) return value;
+  return formatMinutes(roundMinutes(minutes, stepMinutes));
+}
+
+export function isMinuteValue(value: string, stepMinutes: number): boolean {
+  const minutes = parseTime(value);
+  return minutes === null || minutes % stepMinutes === 0;
+}
+
+export function roundClockToTen(value: string): string {
+  return roundClock(value, 10);
 }
 
 export function roundDurationToTen(value: string): string {
-  const minutes = parseTime(value);
-  if (minutes === null) return value;
-  const rounded = Math.floor((minutes + 5) / 10) * 10;
-  return formatMinutes(rounded);
+  return roundDuration(value, 10);
 }
 
 export function isTenMinuteValue(value: string): boolean {
-  const minutes = parseTime(value);
-  return minutes === null || minutes % 10 === 0;
+  return isMinuteValue(value, 10);
 }
 
 export function addClockMinutes(value: string, minutesToAdd: number): string {

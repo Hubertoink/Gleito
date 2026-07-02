@@ -34,6 +34,7 @@ export interface WeekdaySetting {
 }
 
 export type MinusCountingMode = 'planned_days' | 'explicit_only';
+export type RoundingMode = 'none' | '5' | '10';
 
 export interface TrafficThresholds {
   plusGreenUntilMinutes: number;
@@ -75,7 +76,7 @@ export interface Settings {
   windowTransparency: number;
   warnBeforeSix: boolean;
   warnAfterSix: boolean;
-  roundToTenMinutes: boolean;
+  roundingMode: RoundingMode;
   pdfExportLayout: PdfExportLayout;
   hasCanteenAccess: boolean;
   setupGuideCompleted: boolean;

@@ -15,7 +15,7 @@ import {
 } from './domain/calc';
 import type { CalculatedDay, DayEntry, Settings, WeekdayKey } from './domain/types';
 import { holidayRegions } from './domain/holidays';
-import { formatMinutes, roundClockToTen, roundDurationToTen } from './domain/time';
+import { formatMinutes, roundClock, roundDuration } from './domain/time';
 import { buildPrintHtml } from './pdf';
 import mannheimLogo from '../assets/Mannheim_Weiß.png';
 import appLogo from '../assets/Logo.ico';
@@ -74,6 +74,11 @@ function parseDuration(value: string): number {
   if (!match) return 0;
   const total = Number(match[2]) * 60 + Number(match[3]);
   return match[1] ? -total : total;
+}
+
+function roundingStep(mode: Settings['roundingMode']): 5 | 10 | null {
+  if (mode === 'none') return null;
+  return Number(mode) as 5 | 10;
 }
 
 function shiftMonth(key: string, delta: number): string {
@@ -461,11 +466,12 @@ export default function App() {
   }
 
   function handleTimeBlur(entry: DayEntry, field: 'start' | 'end', value: string) {
-    const rounded = settings.roundToTenMinutes ? roundClockToTen(value) : value;
+    const step = roundingStep(settings.roundingMode);
+    const rounded = step ? roundClock(value, step) : value;
     const patch: Partial<DayEntry> = { [field]: rounded };
     const day = calculated.days.find((item) => item.date === entry.date);
     if (field === 'start' && rounded && !entry.endManual && day?.targetMinutes) {
-      patch.end = autoEndForStart(rounded, day.targetMinutes, settings.roundToTenMinutes);
+      patch.end = autoEndForStart(rounded, day.targetMinutes, settings.roundingMode);
       patch.endManual = false;
     }
     if (field === 'end') patch.endManual = Boolean(rounded);
@@ -473,7 +479,8 @@ export default function App() {
   }
 
   function handlePauseBlur(entry: DayEntry, value: string) {
-    const rounded = settings.roundToTenMinutes ? roundDurationToTen(value) : value;
+    const step = roundingStep(settings.roundingMode);
+    const rounded = step ? roundDuration(value, step) : value;
     updateEntry(entry.date, { pause: rounded, pauseManual: Boolean(rounded) });
   }
 
@@ -1325,7 +1332,12 @@ function SetupGuideModal({
             <div className="setup-pane setup-checks">
               <label className="check"><input type="checkbox" checked={draft.warnBeforeSix} onChange={(event) => update({ warnBeforeSix: event.currentTarget.checked })} /> Warnung vor 06:00 Uhr</label>
               <label className="check"><input type="checkbox" checked={draft.warnAfterSix} onChange={(event) => update({ warnAfterSix: event.currentTarget.checked })} /> Warnung nach 18:00 Uhr</label>
-              <label className="check"><input type="checkbox" checked={draft.roundToTenMinutes} onChange={(event) => update({ roundToTenMinutes: event.currentTarget.checked })} /> Kaufmännisch auf 10 Minuten runden</label>
+              <fieldset className="rounding-group">
+                <legend>Rundung</legend>
+                <label className="check"><input type="radio" name="setup-rounding-mode" checked={draft.roundingMode === 'none'} onChange={() => update({ roundingMode: 'none' })} /> Keine Rundung</label>
+                <label className="check"><input type="radio" name="setup-rounding-mode" checked={draft.roundingMode === '5'} onChange={() => update({ roundingMode: '5' })} /> Kaufmännisch auf 5 Minuten runden</label>
+                <label className="check"><input type="radio" name="setup-rounding-mode" checked={draft.roundingMode === '10'} onChange={() => update({ roundingMode: '10' })} /> Kaufmännisch auf 10 Minuten runden</label>
+              </fieldset>
               <label className="check"><input type="checkbox" checked={draft.highlightOpenPlannedDays} onChange={(event) => update({ highlightOpenPlannedDays: event.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
               <label className="check"><input type="checkbox" checked={draft.autoSuggestWorkTimes} onChange={(event) => update({ autoSuggestWorkTimes: event.currentTarget.checked })} /> Wiederkehrende Arbeitszeiten vorschlagen</label>
               <label className="check"><input type="checkbox" checked={draft.hasCanteenAccess} onChange={(event) => update({ hasCanteenAccess: event.currentTarget.checked })} /> Zugang zu einer Kantine</label>
@@ -1461,7 +1473,12 @@ function SettingsPanel({
         )}
         <label className="check"><input type="checkbox" checked={settings.warnBeforeSix} onChange={(e) => update({ warnBeforeSix: e.currentTarget.checked })} /> Warnung vor 06:00 Uhr</label>
         <label className="check"><input type="checkbox" checked={settings.warnAfterSix} onChange={(e) => update({ warnAfterSix: e.currentTarget.checked })} /> Warnung nach 18:00 Uhr</label>
-        <label className="check"><input type="checkbox" checked={settings.roundToTenMinutes} onChange={(e) => update({ roundToTenMinutes: e.currentTarget.checked })} /> Kaufmännisch auf 10 Minuten runden</label>
+        <fieldset className="rounding-group panel-rounding-group">
+          <legend>Rundung</legend>
+          <label className="check"><input type="radio" name="settings-rounding-mode" checked={settings.roundingMode === 'none'} onChange={() => update({ roundingMode: 'none' })} /> Keine Rundung</label>
+          <label className="check"><input type="radio" name="settings-rounding-mode" checked={settings.roundingMode === '5'} onChange={() => update({ roundingMode: '5' })} /> Kaufmännisch auf 5 Minuten runden</label>
+          <label className="check"><input type="radio" name="settings-rounding-mode" checked={settings.roundingMode === '10'} onChange={() => update({ roundingMode: '10' })} /> Kaufmännisch auf 10 Minuten runden</label>
+        </fieldset>
         <label className="check"><input type="checkbox" checked={settings.hasCanteenAccess} onChange={(e) => update({ hasCanteenAccess: e.currentTarget.checked })} /> Zugang zu einer Kantine</label>
         <label className="check"><input type="checkbox" checked={settings.openLastViewedMonthOnStart} onChange={(e) => update({ openLastViewedMonthOnStart: e.currentTarget.checked, lastViewedMonth: settings.lastViewedMonth || settings.currentWorkMonth })} /> Beim Start zuletzt angesehenen Monat öffnen</label>
       </div>

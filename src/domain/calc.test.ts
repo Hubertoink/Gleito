@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { holidaysForYear } from './holidays';
 import { autoEndForStart, calculateMonth, daysInMonth, defaultSettings, emptyEntry, requiredPauseMinutes, resolveCurrentWorkMonth } from './calc';
-import { roundClockToTen, roundDurationToTen } from './time';
+import { roundClock, roundClockToTen, roundDuration, roundDurationToTen } from './time';
 
 describe('holiday generation', () => {
   it('includes Baden-Württemberg holidays', () => {
@@ -30,12 +30,22 @@ describe('time rules', () => {
     expect(roundDurationToTen('0:20')).toBe('0:20');
   });
 
+  it('rounds commercially to five minutes', () => {
+    expect(roundClock('08:12', 5)).toBe('08:10');
+    expect(roundClock('08:13', 5)).toBe('08:15');
+    expect(roundClock('08:18', 5)).toBe('08:20');
+    expect(roundDuration('0:12', 5)).toBe('0:10');
+    expect(roundDuration('0:13', 5)).toBe('0:15');
+    expect(roundDuration('0:18', 5)).toBe('0:20');
+  });
+
   it('calculates legal pauses and auto end times', () => {
     expect(requiredPauseMinutes(6 * 60)).toBe(0);
     expect(requiredPauseMinutes(6 * 60 + 1)).toBe(30);
     expect(requiredPauseMinutes(9 * 60 + 45)).toBe(45);
     expect(autoEndForStart('10:00', 8 * 60)).toBe('18:30');
-    expect(autoEndForStart('08:00', 9 * 60 + 15, true)).toBe('18:05');
+    expect(autoEndForStart('08:00', 9 * 60 + 15, '10')).toBe('17:55');
+    expect(autoEndForStart('08:00', 9 * 60 + 15, '5')).toBe('18:00');
   });
 });
 
@@ -199,10 +209,10 @@ describe('month calculation', () => {
     expect(result.summary.trafficLight).toBe('red');
   });
 
-  it('rounds the automatic 45 minute pause to 50 minutes when ten-minute rounding is enabled', () => {
+  it('rounds the automatic 45 minute pause to 40 minutes when ten-minute rounding is enabled', () => {
     const settings = defaultSettings();
     settings.trackingStartMonth = '2026-07';
-    settings.roundToTenMinutes = true;
+    settings.roundingMode = '10';
     settings.weekdays.mon.targetMinutes = 9 * 60;
 
     const result = calculateMonth(
@@ -214,8 +224,28 @@ describe('month calculation', () => {
     );
     const day = result.days.find((entry) => entry.date === '2026-07-06');
 
-    expect(day?.pause).toBe('0:50');
-    expect(day?.actualMinutes).toBe(8 * 60 + 55);
-    expect(day?.minusMinutes).toBe(5);
+    expect(day?.pause).toBe('0:40');
+    expect(day?.actualMinutes).toBe(9 * 60 + 5);
+    expect(day?.plusMinutes).toBe(5);
+  });
+
+  it('keeps the automatic 45 minute pause at 45 minutes when five-minute rounding is enabled', () => {
+    const settings = defaultSettings();
+    settings.trackingStartMonth = '2026-07';
+    settings.roundingMode = '5';
+    settings.weekdays.mon.targetMinutes = 9 * 60;
+
+    const result = calculateMonth(
+      [{ ...emptyEntry('2026-07-06'), start: '08:00', end: '17:45' }],
+      settings,
+      '2026-07',
+      0,
+      true
+    );
+    const day = result.days.find((entry) => entry.date === '2026-07-06');
+
+    expect(day?.pause).toBe('0:45');
+    expect(day?.actualMinutes).toBe(9 * 60);
+    expect(day?.plusMinutes).toBe(0);
   });
 });

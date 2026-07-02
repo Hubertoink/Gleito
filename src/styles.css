@@ -870,6 +870,21 @@ h2 {
   min-height: 17px;
 }
 
+.rounding-group {
+  border: 0;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.rounding-group legend {
+  padding: 0;
+  margin-bottom: 2px;
+  color: #4f4d46;
+  font-size: 13px;
+}
+
 .setup-actions {
   margin-top: 16px;
 }
@@ -963,6 +978,10 @@ h2 {
 .panel .check input {
   width: 17px;
   min-height: 17px;
+}
+
+.panel-rounding-group {
+  margin-bottom: 12px;
 }
 
 .threshold-toggle {

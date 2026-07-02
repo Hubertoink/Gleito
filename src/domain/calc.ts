@@ -1,6 +1,6 @@
 import type { CalculatedDay, DayEntry, MonthSummary, Settings, WeekdayKey } from './types';
 import { holidaysForYear } from './holidays';
-import { addClockMinutes, isTenMinuteValue, parseTime } from './time';
+import { addClockMinutes, isMinuteValue, parseTime, roundMinutes } from './time';
 
 const WEEKDAY_KEYS: WeekdayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const WEEKDAY_LABELS: Record<WeekdayKey, string> = {
@@ -13,6 +13,10 @@ const WEEKDAY_LABELS: Record<WeekdayKey, string> = {
   sun: 'So'
 };
 const ABSENCE_REMARKS = new Set(['Zeitkonto', 'AZVO']);
+
+function roundingStep(mode: Settings['roundingMode']): number | null {
+  return mode === 'none' ? null : Number(mode);
+}
 
 export function defaultSettings(): Settings {
   const currentMonth = monthKey(new Date());
@@ -50,7 +54,7 @@ export function defaultSettings(): Settings {
     windowTransparency: 0.98,
     warnBeforeSix: true,
     warnAfterSix: true,
-    roundToTenMinutes: false,
+    roundingMode: 'none',
     pdfExportLayout: 'gleito',
     hasCanteenAccess: true,
     setupGuideCompleted: false,
@@ -122,16 +126,15 @@ export function requiredPauseMinutes(grossMinutes: number): number {
   return 30;
 }
 
-function roundMinutesToTen(minutes: number): number {
-  return Math.floor((minutes + 5) / 10) * 10;
-}
-
-function automaticPauseMinutes(grossMinutes: number, roundToTenMinutes: boolean): number {
+function automaticPauseMinutes(grossMinutes: number, mode: Settings['roundingMode']): number {
   const pause = requiredPauseMinutes(grossMinutes);
-  return roundToTenMinutes ? roundMinutesToTen(pause) : pause;
+  const step = roundingStep(mode);
+  if (!step) return pause;
+  if (pause === 45 && step === 10) return 40;
+  return roundMinutes(pause, step);
 }
 
-export function autoEndForStart(start: string, targetMinutes: number, roundToTenMinutes = false): string {
+export function autoEndForStart(start: string, targetMinutes: number, mode: Settings['roundingMode'] = 'none'): string {
   if (!start || targetMinutes <= 0) return '';
   let pause = targetMinutes > 6 * 60 ? 30 : 0;
   for (let i = 0; i < 3; i += 1) {
@@ -139,7 +142,9 @@ export function autoEndForStart(start: string, targetMinutes: number, roundToTen
     if (nextPause === pause) break;
     pause = nextPause;
   }
-  if (roundToTenMinutes) pause = roundMinutesToTen(pause);
+  const step = roundingStep(mode);
+  if (step === 10 && pause === 45) pause = 40;
+  else if (step) pause = roundMinutes(pause, step);
   return addClockMinutes(start, targetMinutes + pause);
 }
 
@@ -163,7 +168,7 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
   const start = parseTime(entry.start);
   const end = parseTime(entry.end);
   const gross = start !== null && end !== null ? Math.max(0, end - start) : 0;
-  const automaticPause = gross > 0 ? automaticPauseMinutes(gross, settings.roundToTenMinutes) : 0;
+  const automaticPause = gross > 0 ? automaticPauseMinutes(gross, settings.roundingMode) : 0;
   const manualPause = parseTime(entry.pause);
   const pauseMinutes = entry.pauseManual && manualPause !== null ? manualPause : automaticPause;
   const actualMinutes =
@@ -186,8 +191,9 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
   if (actualMinutes > 10 * 60) warnings.push('Mehr als 10 Stunden Arbeitszeit');
   if (settings.warnBeforeSix && start !== null && start < 6 * 60) warnings.push('Beginn vor 06:00 Uhr');
   if (settings.warnAfterSix && end !== null && end > 18 * 60) warnings.push('Ende nach 18:00 Uhr');
-  if (!settings.roundToTenMinutes && (!isTenMinuteValue(entry.start) || !isTenMinuteValue(entry.end))) {
-    warnings.push('Zeit nicht im 10-Minuten-Raster');
+  const step = roundingStep(settings.roundingMode);
+  if (step && (!isMinuteValue(entry.start, step) || !isMinuteValue(entry.end, step))) {
+    warnings.push(`Zeit nicht im ${step}-Minuten-Raster`);
   }
 
   return {
