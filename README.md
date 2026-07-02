@@ -92,13 +92,13 @@ Releases werden ueber Git-Tags im Format `v*` erstellt. Der GitHub Actions Workf
 Kurzform:
 
 ```powershell
-npm version 1.0.2 --no-git-tag-version
+npm version 1.1.0 --no-git-tag-version
 npm run build
 npm test
-git commit -am "Release v1.0.2"
-git tag v1.0.2
+git commit -am "Release v1.1.0"
+git tag v1.1.0
 git push origin main
-git push origin v1.0.2
+git push origin v1.1.0
 ```
 
 ## Architektur

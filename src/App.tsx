@@ -211,7 +211,9 @@ export default function App() {
 
   const todayMonth = keyForDate(new Date());
   const todayDateKey = new Date().toISOString().slice(0, 10);
-  const editable = !lockedView;
+  const previousHomeMonth = shiftMonth(homeMonth, -1);
+  const archiveUnlockAllowed = activeMonth === previousHomeMonth;
+  const editable = !lockedView && (activeMonth >= homeMonth || archiveUnlockAllowed);
   const archiveMonths = useMemo(
     () =>
       storedMonthKeys
@@ -518,10 +520,19 @@ export default function App() {
   }
 
   function unlockArchiveMonth() {
+    if (!archiveUnlockAllowed) {
+      showToast('Nur der direkt vorherige Monat kann noch bearbeitet werden', 'info');
+      return;
+    }
     setShowUnlockArchiveModal(true);
   }
 
   function confirmUnlockArchiveMonth() {
+    if (!archiveUnlockAllowed) {
+      setShowUnlockArchiveModal(false);
+      showToast('Dieser Archivmonat ist nur zur Ansicht verfuegbar', 'info');
+      return;
+    }
     setLockedView(false);
     setShowUnlockArchiveModal(false);
   }
@@ -730,9 +741,13 @@ export default function App() {
               <span className="badge">
                 <Eye size={14} /> Nur Ansicht
               </span>
-              <button className="ghost-button" onClick={unlockArchiveMonth}>
-                Bearbeiten entsperren
-              </button>
+              {archiveUnlockAllowed ? (
+                <button className="ghost-button" onClick={unlockArchiveMonth}>
+                  Bearbeiten entsperren
+                </button>
+              ) : (
+                <span className="hint">Bearbeiten ist nur fuer den direkt vorherigen Monat moeglich.</span>
+              )}
             </section>
           )}
 
@@ -742,7 +757,7 @@ export default function App() {
             settings={settings}
             monthLabel={monthName(activeMonth)}
             action={
-              <button className="close-month-button" onClick={() => setShowCloseModal(true)} disabled={lockedView}>
+              <button className="close-month-button" onClick={() => setShowCloseModal(true)} disabled={!editable}>
                 <Lock size={16} /> Monat abschliessen
               </button>
             }
