@@ -248,6 +248,8 @@ h2 {
   color: inherit;
   min-height: 34px;
   padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .mannheim-logo {
@@ -287,10 +289,25 @@ h2 {
 
 .summary-action {
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
   flex: 0 0 210px;
   min-width: 210px;
   padding-right: 12px;
+}
+
+.summary-action-content {
+  display: flex;
+  align-items: center;
+}
+
+.summary-month-label {
+  font-size: 30px;
+  font-weight: 700;
+  color: #2f3d35;
+  line-height: 1.2;
+  text-shadow: 0 0 4px rgba(255, 255, 255, 1);
 }
 
 .summary-person {
@@ -320,27 +337,38 @@ h2 {
 .summary-inline-item.ampel {
   border: 1px solid #d1d0c8;
   background: rgba(255, 255, 255, var(--surface-opacity));
-  padding: 9px 10px;
+  padding: 14px 14px;
 }
 
 .summary-metric {
   flex: 0 0 110px;
   min-width: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
 }
 
 .summary-metric span,
 .summary-inline-item span {
   display: block;
   color: #6f6d63;
-  font-size: 12px;
-  margin-bottom: 3px;
+  font-size: 15px;
+  margin-bottom: 0;
 }
 
 .summary-metric strong,
 .summary-inline-item strong,
 .summary-hint-value {
-  font-size: 17px;
+  font-size: 21px;
   font-weight: 700;
+}
+
+.summary-inline-item.ampel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
 }
 
 .summary-plus {

@@ -634,7 +634,7 @@ export default function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow app-eyebrow"><img className="app-logo-mark" src={appLogo} alt="" aria-hidden="true" />Lokaler Gleitzeitnachweis</p>
-          <h1>{view === 'month' ? monthName(activeMonth) : 'Einstellungen'}</h1>
+          {view === 'settings' ? <h1>Einstellungen</h1> : null}
         </div>
         <div className="actions">
           <img className="mannheim-logo" src={mannheimLogo} alt="Stadt Mannheim" />
@@ -721,6 +721,7 @@ export default function App() {
             summary={calculated.summary}
             position="top"
             settings={settings}
+            monthLabel={monthName(activeMonth)}
             action={
               <button className="close-month-button" onClick={() => setShowCloseModal(true)} disabled={lockedView}>
                 <Lock size={16} /> Monat abschliessen
@@ -1002,19 +1003,28 @@ function MonthSummaryBand({
   summary,
   position,
   action,
+  monthLabel,
   settings
 }: {
   summary: ReturnType<typeof calculateMonth>['summary'];
   position: 'top' | 'bottom';
   action?: ReactNode;
+  monthLabel?: string;
   settings: Settings;
 }) {
+  const personLabel = [settings.employeeName, settings.personalNumber ? `(${settings.personalNumber})` : '']
+    .filter(Boolean)
+    .join(' ');
+
   if (position === 'top') {
     return (
       <section className="table-summary-band top">
-        <div className="summary-action">{action}</div>
+        <div className="summary-action">
+          {monthLabel ? <div className="summary-month-label">{monthLabel}</div> : null}
+          {action ? <div className="summary-action-content">{action}</div> : null}
+        </div>
         <div className="summary-person">
-          <span>{settings.employeeName}{settings.personalNumber ? ` (${settings.personalNumber})` : ''}</span>
+          {personLabel ? <span>{personLabel}</span> : null}
           <strong>{settings.department || settings.dienststelle || 'Amt / FB / EB'}</strong>
         </div>
         <div className="summary-metric">
