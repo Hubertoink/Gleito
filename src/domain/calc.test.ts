@@ -137,6 +137,30 @@ describe('month calculation', () => {
     expect(day?.minusMinutes).toBe(0);
   });
 
+  it('keeps vacation logic when a parenthesized note is added', () => {
+    const settings = defaultSettings();
+    settings.trackingStartMonth = '2026-07';
+    const result = calculateMonth([{ ...emptyEntry('2026-07-08'), remark: 'Urlaub (Bildung)' }], settings, '2026-07', 0, true);
+    const day = result.days.find((entry) => entry.date === '2026-07-08');
+    expect(day?.targetMinutes).toBe(8 * 60);
+    expect(day?.actualMinutes).toBe(8 * 60);
+    expect(day?.plusMinutes).toBe(0);
+    expect(day?.minusMinutes).toBe(0);
+    expect(day?.remark).toBe('Urlaub (Bildung)');
+  });
+
+  it('keeps manual holiday logic when a parenthesized note is added', () => {
+    const settings = defaultSettings();
+    settings.trackingStartMonth = '2026-07';
+    const result = calculateMonth([{ ...emptyEntry('2026-07-08'), remark: 'Feiertag (Dienststelle)' }], settings, '2026-07', 0, true);
+    const day = result.days.find((entry) => entry.date === '2026-07-08');
+    expect(day?.holidayName).toBe('Feiertag');
+    expect(day?.targetMinutes).toBe(0);
+    expect(day?.actualMinutes).toBe(0);
+    expect(day?.plusMinutes).toBe(0);
+    expect(day?.minusMinutes).toBe(0);
+  });
+
   it('treats Feiertag as neutral even when times are entered', () => {
     const settings = defaultSettings();
     settings.trackingStartMonth = '2026-01';

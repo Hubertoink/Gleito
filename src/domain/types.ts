@@ -67,6 +67,7 @@ export interface Settings {
   trafficThresholds: TrafficThresholds;
   backgroundEnabled: boolean;
   translucentSurfaces: boolean;
+  compactTable: boolean;
   highlightOpenPlannedDays: boolean;
   autoSuggestWorkTimes: boolean;
   backgroundImage: BackgroundImageOption;

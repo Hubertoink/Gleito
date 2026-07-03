@@ -12,10 +12,16 @@ const WEEKDAY_LABELS: Record<WeekdayKey, string> = {
   sat: 'Sa',
   sun: 'So'
 };
+const REMARK_BASES = ['Urlaub', 'krank', 'Zeitkonto', 'AZVO', 'Ausgleichstag', 'Feiertag', 'Rufbereitschaft'];
 const ABSENCE_REMARKS = new Set(['Zeitkonto', 'AZVO']);
 
 function roundingStep(mode: Settings['roundingMode']): number | null {
   return mode === 'none' ? null : Number(mode);
+}
+
+export function remarkBase(remark: string): string {
+  const trimmed = remark.trim();
+  return REMARK_BASES.find((base) => trimmed === base || trimmed.startsWith(`${base} (`)) ?? trimmed;
 }
 
 export function defaultSettings(): Settings {
@@ -45,6 +51,7 @@ export function defaultSettings(): Settings {
     },
     backgroundEnabled: true,
     translucentSurfaces: true,
+    compactTable: false,
     highlightOpenPlannedDays: false,
     autoSuggestWorkTimes: true,
     backgroundImage: 'none',
@@ -156,11 +163,12 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
   const holidayName = holidays.get(entry.date) ?? '';
   const isWeekend = weekday === 'sat' || weekday === 'sun';
   const weekdaySetting = settings.weekdays[weekday];
-  const isCompDay = entry.remark === 'Ausgleichstag';
-  const isVacationDay = entry.remark === 'Urlaub';
-  const isSickDay = entry.remark === 'krank';
-  const isHolidayRemark = entry.remark === 'Feiertag';
-  const hasAbsenceRemark = ABSENCE_REMARKS.has(entry.remark);
+  const baseRemark = remarkBase(entry.remark);
+  const isCompDay = baseRemark === 'Ausgleichstag';
+  const isVacationDay = baseRemark === 'Urlaub';
+  const isSickDay = baseRemark === 'krank';
+  const isHolidayRemark = baseRemark === 'Feiertag';
+  const hasAbsenceRemark = ABSENCE_REMARKS.has(baseRemark);
   const holidayBlocksTarget = Boolean(holidayName) || isHolidayRemark;
   const workAllowed = weekdaySetting.workAllowed;
   const beforeTrackingStart = entryMonthKey < settings.trackingStartMonth;

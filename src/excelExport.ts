@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { CalculatedDay, Settings } from './domain/types';
+import { remarkBase } from './domain/calc';
 import { parseTime } from './domain/time';
 
 type ForderungsnachweisExport = {
@@ -37,7 +38,7 @@ function dateForDayOffset(dateKey: string, offset: number): Date {
 }
 
 function isHolidayLike(day: CalculatedDay): boolean {
-  return Boolean(day.holidayName) || day.remark === 'Feiertag';
+  return Boolean(day.holidayName) || remarkBase(day.remark) === 'Feiertag';
 }
 
 function overlapMinutes(start: number, end: number, rangeStart: number, rangeEnd: number): number {

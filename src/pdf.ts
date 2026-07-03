@@ -1,5 +1,5 @@
 import type { CalculatedDay, MonthSummary, Settings } from './domain/types';
-import { monthName } from './domain/calc';
+import { monthName, remarkBase } from './domain/calc';
 import { formatMinutes } from './domain/time';
 import mannheimLogo from '../assets/Mannheim_Weiß.png?inline';
 
@@ -43,7 +43,7 @@ function splitSignedMinutes(minutes: number, forceZero = false): { plus: string;
 
 function remarkForCity(day: CalculatedDay): string {
   if (day.holidayName) return day.holidayName;
-  if (day.remark === 'Ausgleichstag') return 'Zeitausgleich';
+  if (remarkBase(day.remark) === 'Ausgleichstag') return day.remark.replace(/^Ausgleichstag/, 'Zeitausgleich');
   return day.remark;
 }
 
@@ -52,7 +52,7 @@ function cityDataRows(days: CalculatedDay[]): string {
     .map((day) => {
       const hasTimeEntry = Boolean(day.start || day.end || day.pause);
       const hasRemark = Boolean(day.remark);
-      const showZeroDuration = hasTimeEntry || day.remark === 'Ausgleichstag';
+      const showZeroDuration = hasTimeEntry || remarkBase(day.remark) === 'Ausgleichstag';
       const remark = remarkForCity(day);
       return `
         <tr>

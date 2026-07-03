@@ -263,6 +263,22 @@ h2 {
   display: flex;
   align-items: center;
   gap: 10px;
+  max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 10px;
+}
+
+.month-summary {
+  max-width: 1120px;
+  margin: 0 auto 15px;
+}
+
+.summary-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
   margin-bottom: 10px;
 }
 
@@ -279,7 +295,7 @@ h2 {
 }
 
 .table-summary-band.top {
-  margin-bottom: 15px;
+  margin-bottom: 0;
 }
 
 .table-summary-band.bottom {
@@ -300,6 +316,7 @@ h2 {
 .summary-action-content {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
 }
 
 .summary-month-label {
@@ -495,6 +512,47 @@ h2 {
 .month-table input {
   min-height: 30px;
   padding: 4px 6px;
+}
+
+.compact-table .month-table {
+  font-size: 13px;
+}
+
+.compact-table .month-table th {
+  font-size: 12px;
+  padding: 5px 6px;
+}
+
+.compact-table .month-table td {
+  height: 32px;
+  padding: 3px 6px;
+}
+
+.compact-table .month-table input {
+  min-height: 24px;
+  padding: 2px 6px;
+  font-size: 13px;
+}
+
+.compact-table .remark-field {
+  grid-template-columns: 1fr 28px;
+  gap: 5px;
+}
+
+.compact-table .remark-toggle {
+  min-height: 24px;
+}
+
+.compact-table .suggestion-button {
+  min-width: 18px;
+  width: 18px;
+  min-height: 18px;
+  height: 18px;
+}
+
+.compact-table .weekday-cell {
+  min-width: 40px;
+  gap: 4px;
 }
 
 .time-field {

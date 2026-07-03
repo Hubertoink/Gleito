@@ -11,6 +11,7 @@ import {
   monthKey as keyForDate,
   monthName,
   normalizeMonthEntries,
+  remarkBase,
   resolveCurrentWorkMonth
 } from './domain/calc';
 import type { CalculatedDay, DayEntry, Settings, WeekdayKey } from './domain/types';
@@ -421,7 +422,7 @@ export default function App() {
 
   function updateRemark(date: string, remark: string) {
     const patch: Partial<DayEntry> =
-      remark === 'Ausgleichstag'
+      remarkBase(remark) === 'Ausgleichstag'
         ? { remark, start: '', end: '', pause: '', pauseManual: false, endManual: false }
         : { remark };
     updateEntry(date, patch);
@@ -648,7 +649,7 @@ export default function App() {
 
   return (
     <main
-      className="app-shell"
+      className={`app-shell ${settings.compactTable ? 'compact-table' : ''}`}
       style={{
         ['--surface-opacity' as string]: String(effectiveSurfaceOpacity),
         ['--table-opacity' as string]: String(effectiveTableOpacity),
@@ -1052,34 +1053,38 @@ function MonthSummaryBand({
 
   if (position === 'top') {
     return (
-      <section className="table-summary-band top">
-        <div className="summary-action">
-          {monthLabel ? <div className="summary-month-label">{monthLabel}</div> : null}
-          {action ? <div className="summary-action-content">{action}</div> : null}
-        </div>
-        <div className="summary-person">
-          {personLabel ? <span>{personLabel}</span> : null}
-          <strong>{settings.department || settings.dienststelle || 'Amt / FB / EB'}</strong>
-        </div>
-        <div className="summary-metric">
-          <span>Plus</span>
-          <strong className="summary-plus">{formatMinutes(summary.plusMinutes)}</strong>
-        </div>
-        <div className="summary-metric">
-          <span>Minus</span>
-          <strong className="summary-minus">{formatMinutes(summary.minusMinutes)}</strong>
-        </div>
-        <div className="summary-metric balance">
-          <span>Übertrag</span>
-          <strong>{formatMinutes(summary.carryInMinutes)}</strong>
-        </div>
-        <div className="summary-metric">
-          <span>Saldo</span>
-          <strong>{formatMinutes(summary.saldoMinutes)}</strong>
-        </div>
-        <div className={`summary-inline-item ampel ${summary.trafficLight}`}>
-          <span>Ampel</span>
-          <strong>{summary.trafficLight === 'green' ? 'Grün' : summary.trafficLight === 'yellow' ? 'Gelb' : 'Rot'}</strong>
+      <section className="month-summary">
+        {(monthLabel || action) && (
+          <div className="summary-heading">
+            {monthLabel ? <div className="summary-month-label">{monthLabel}</div> : null}
+            {action ? <div className="summary-action-content">{action}</div> : null}
+          </div>
+        )}
+        <div className="table-summary-band top">
+          <div className="summary-person">
+            {personLabel ? <span>{personLabel}</span> : null}
+            <strong>{settings.department || settings.dienststelle || 'Amt / FB / EB'}</strong>
+          </div>
+          <div className="summary-metric">
+            <span>Plus</span>
+            <strong className="summary-plus">{formatMinutes(summary.plusMinutes)}</strong>
+          </div>
+          <div className="summary-metric">
+            <span>Minus</span>
+            <strong className="summary-minus">{formatMinutes(summary.minusMinutes)}</strong>
+          </div>
+          <div className="summary-metric balance">
+            <span>Übertrag</span>
+            <strong>{formatMinutes(summary.carryInMinutes)}</strong>
+          </div>
+          <div className="summary-metric">
+            <span>Saldo</span>
+            <strong>{formatMinutes(summary.saldoMinutes)}</strong>
+          </div>
+          <div className={`summary-inline-item ampel ${summary.trafficLight}`}>
+            <span>Ampel</span>
+            <strong>{summary.trafficLight === 'green' ? 'Grün' : summary.trafficLight === 'yellow' ? 'Gelb' : 'Rot'}</strong>
+          </div>
         </div>
       </section>
     );
@@ -1519,6 +1524,7 @@ function SettingsPanel({
         <h2>Darstellung</h2>
         <label className="check"><input type="checkbox" checked={settings.backgroundEnabled} onChange={(e) => update({ backgroundEnabled: e.currentTarget.checked })} /> Hintergrundbild anzeigen</label>
         <label className="check"><input type="checkbox" checked={settings.translucentSurfaces} onChange={(e) => update({ translucentSurfaces: e.currentTarget.checked })} /> Kacheltransparenz aktivieren</label>
+        <label className="check"><input type="checkbox" checked={settings.compactTable} onChange={(e) => update({ compactTable: e.currentTarget.checked })} /> Kompakte Tabellendarstellung</label>
         <label className="check"><input type="checkbox" checked={settings.highlightOpenPlannedDays} onChange={(e) => update({ highlightOpenPlannedDays: e.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
         <label className="check"><input type="checkbox" checked={settings.autoSuggestWorkTimes} onChange={(e) => update({ autoSuggestWorkTimes: e.currentTarget.checked })} /> Wiederkehrende Arbeitszeiten vorschlagen</label>
         <label>PDF-Exportlayout
