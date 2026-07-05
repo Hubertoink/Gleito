@@ -204,11 +204,13 @@ export default function App() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [monthMenuOpen, setMonthMenuOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [updateStatus, setUpdateStatus] = useState<UpdateStatusPayload | null>(null);
   const [suggestionTooltip, setSuggestionTooltip] = useState<SuggestionTooltipState>(null);
   const manualUpdateCheckRef = useRef(false);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const monthMenuRef = useRef<HTMLDivElement | null>(null);
 
   const todayMonth = keyForDate(new Date());
   const todayDateKey = new Date().toISOString().slice(0, 10);
@@ -222,6 +224,10 @@ export default function App() {
         .sort((a, b) => b.localeCompare(a)),
     [storedMonthKeys, homeMonth]
   );
+  const monthMenuMonths = useMemo(() => {
+    const months = new Set<string>([homeMonth, ...archiveMonths]);
+    return Array.from(months).sort((a, b) => b.localeCompare(a));
+  }, [homeMonth, archiveMonths]);
   const calculated = useMemo(
     () => calculateMonth(entries, settings, activeMonth, carryIn, editable),
     [entries, settings, activeMonth, carryIn, editable]
@@ -296,6 +302,19 @@ export default function App() {
       window.removeEventListener('resize', dismissTooltip);
     };
   }, [suggestionTooltip]);
+
+  useEffect(() => {
+    if (!monthMenuOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (monthMenuRef.current?.contains(target)) return;
+      setMonthMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [monthMenuOpen]);
 
   useEffect(() => {
     if (!window.gleito) return;
@@ -645,7 +664,7 @@ export default function App() {
   const monthButtonClassName = monthButtonReturnsToViewedMonth || monthButtonReturnsToCurrentMonth
     ? 'return-button'
     : 'active';
-  const monthButtonTitle = monthButtonReturnsToViewedMonth ? 'Zurueck' : 'Monat';
+  const monthButtonTitle = monthButtonReturnsToViewedMonth ? 'Zurück' : 'Monat';
 
   return (
     <main
@@ -664,33 +683,61 @@ export default function App() {
         </div>
         <div className="actions">
           <img className="mannheim-logo" src={mannheimLogo} alt="Stadt Mannheim" />
-          <button
-            className={monthButtonClassName}
-            onClick={() => {
-              if (monthButtonReturnsToViewedMonth) {
+          <div className={`month-switcher-split ${monthButtonReturnsToViewedMonth ? 'single' : ''}`} ref={monthMenuRef}>
+            <button
+              className={monthButtonClassName}
+              onClick={() => {
+                if (monthButtonReturnsToViewedMonth) {
+                  setView('month');
+                  setMonthMenuOpen(false);
+                  return;
+                }
                 setView('month');
-                return;
-              }
-              setView('month');
-              setActiveMonth(homeMonth);
-              setLockedView(false);
-            }}
-            title={monthButtonTitle}
-          >
-            {monthButtonReturnsToViewedMonth ? <ArrowLeft size={18} /> : <CalendarDays size={18} />}
-            {monthButtonReturnsToViewedMonth ? 'Zurueck' : monthButtonReturnsToCurrentMonth ? '-> Monat' : 'Monat'}
-          </button>
-          <label className="archive-picker" title="Archiv">
-            <Archive size={16} />
-            <select value={lockedView ? activeMonth : ''} onChange={(event) => openArchiveMonth(event.currentTarget.value)}>
-              <option value="">Archiv</option>
-              {archiveMonths.map((month) => (
-                <option key={month} value={month}>
-                  {monthName(month)}
-                </option>
-              ))}
-            </select>
-          </label>
+                setActiveMonth(homeMonth);
+                setLockedView(false);
+                setMonthMenuOpen(false);
+              }}
+              title={monthButtonTitle}
+            >
+              {monthButtonReturnsToViewedMonth ? <ArrowLeft size={18} /> : <CalendarDays size={18} />}
+              {monthButtonReturnsToViewedMonth ? 'Zurück' : monthButtonReturnsToCurrentMonth ? '-> Monat' : 'Monat'}
+            </button>
+            {!monthButtonReturnsToViewedMonth && (
+              <>
+                <button
+                  className="month-switcher-menu-button"
+                  onClick={() => setMonthMenuOpen((open) => !open)}
+                  aria-label="Monate anzeigen"
+                  aria-expanded={monthMenuOpen}
+                >
+                  <ChevronDown size={16} />
+                </button>
+                {monthMenuOpen && (
+                  <div className="month-switcher-menu">
+                    {monthMenuMonths.map((month) => (
+                      <button
+                        key={month}
+                        type="button"
+                        className={month === activeMonth ? 'selected' : ''}
+                        onClick={() => {
+                          if (month === homeMonth) {
+                            setView('month');
+                            setActiveMonth(month);
+                            setLockedView(false);
+                          } else {
+                            openArchiveMonth(month);
+                          }
+                          setMonthMenuOpen(false);
+                        }}
+                      >
+                        {monthName(month)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
           <button className={view === 'settings' ? 'active' : ''} onClick={() => setView('settings')} title="Einstellungen">
             <SettingsIcon size={18} /> Einstellungen
           </button>
@@ -899,8 +946,8 @@ export default function App() {
                         )}
                       </div>
                     </td>
-                    <td>{day.actualMinutes ? formatMinutes(day.actualMinutes) : ''}</td>
-                    <td>{day.targetMinutes ? formatMinutes(day.targetMinutes) : ''}</td>
+                    <td className="table-value table-value-ist">{day.actualMinutes ? formatMinutes(day.actualMinutes) : ''}</td>
+                    <td className="table-value table-value-soll">{day.targetMinutes ? formatMinutes(day.targetMinutes) : ''}</td>
                     <td className="plus">{day.plusMinutes ? formatMinutes(day.plusMinutes) : ''}</td>
                     <td className="minus">{day.minusMinutes ? formatMinutes(day.minusMinutes) : ''}</td>
                     <td>
