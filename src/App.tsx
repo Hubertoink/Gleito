@@ -41,7 +41,7 @@ type UpdateStatusPayload = {
   message?: string;
 };
 
-type SetupStep = 'person' | 'worktime' | 'warnings';
+type SetupStep = 'person' | 'worktime' | 'display' | 'warnings';
 
 type WorkTimeSuggestion = Pick<DayEntry, 'start' | 'end' | 'pause' | 'pauseManual' | 'endManual'> & {
   confidence: number;
@@ -65,6 +65,11 @@ const WEEKDAYS: Array<{ key: WeekdayKey; label: string }> = [
 
 const REMARKS = ['', 'Urlaub', 'krank', 'Zeitkonto', 'Ausgleichstag', 'Feiertag', 'Rufbereitschaft'];
 const WEEKDAY_KEYS_BY_DATE_INDEX: WeekdayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const SETUP_CARRYOVER_SLIDER_LIMIT_MINUTES = 80 * 60;
+const SETUP_CARRYOVER_SLIDER_STEP_MINUTES = 10;
+const TABLE_TRANSPARENCY_MIN_PERCENT = 2;
+const TABLE_TRANSPARENCY_MAX_PERCENT = 40;
+const TABLE_TRANSPARENCY_STEP_PERCENT = 2;
 
 function minutesInput(minutes: number): string {
   return formatMinutes(minutes).padStart(5, '0');
@@ -75,6 +80,15 @@ function parseDuration(value: string): number {
   if (!match) return 0;
   const total = Number(match[2]) * 60 + Number(match[3]);
   return match[1] ? -total : total;
+}
+
+function tableTransparencyPercent(tableOpacity: number): number {
+  return Math.round((1 - tableOpacity) * 100);
+}
+
+function tableOpacityFromTransparency(percent: number): number {
+  const clamped = Math.max(TABLE_TRANSPARENCY_MIN_PERCENT, Math.min(TABLE_TRANSPARENCY_MAX_PERCENT, percent));
+  return 1 - clamped / 100;
 }
 
 function roundingStep(mode: Settings['roundingMode']): 5 | 10 | null {
@@ -247,7 +261,7 @@ export default function App() {
   }, [settings.backgroundEnabled, activeMonth]);
   const effectiveWindowOpacity = backgroundSource ? 0.46 : 0.98;
   const effectiveSurfaceOpacity = backgroundSource && settings.translucentSurfaces ? 0.82 : 0.98;
-  const effectiveTableOpacity = backgroundSource && settings.translucentSurfaces ? 0.84 : 0.98;
+  const effectiveTableOpacity = settings.translucentSurfaces ? settings.tableOpacity : 0.98;
 
   async function hydrateFromDatabase(database: AppDatabase, preferredMonth?: string) {
     const loadedSettings = database.loadSettings();
@@ -1188,6 +1202,49 @@ function DurationSettingInput({
   );
 }
 
+function CarryoverSetupControl({
+  value,
+  onChange
+}: {
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const sliderLimit = Math.max(SETUP_CARRYOVER_SLIDER_LIMIT_MINUTES, Math.ceil(Math.abs(value) / 60) * 60);
+
+  function updateBy(delta: number) {
+    onChange(value + delta);
+  }
+
+  return (
+    <div className="carryover-control">
+      <DurationSettingInput value={formatMinutes(value)} onCommit={(next) => onChange(parseDuration(next))} />
+      <div className="carryover-slider-row">
+        <button type="button" className="icon-button carryover-step-button" onClick={() => updateBy(-SETUP_CARRYOVER_SLIDER_STEP_MINUTES)} aria-label="Übertrag verringern">
+          -
+        </button>
+        <input
+          className="carryover-slider"
+          type="range"
+          min={-sliderLimit}
+          max={sliderLimit}
+          step={SETUP_CARRYOVER_SLIDER_STEP_MINUTES}
+          value={Math.max(-sliderLimit, Math.min(sliderLimit, value))}
+          onChange={(event) => onChange(Number(event.currentTarget.value))}
+          aria-label="Übertrag Start per Schieberegler"
+        />
+        <button type="button" className="icon-button carryover-step-button" onClick={() => updateBy(SETUP_CARRYOVER_SLIDER_STEP_MINUTES)} aria-label="Übertrag erhöhen">
+          +
+        </button>
+      </div>
+      <div className="carryover-scale" aria-hidden="true">
+        <span>{formatMinutes(-sliderLimit)}</span>
+        <span>0:00</span>
+        <span>+{formatMinutes(sliderLimit)}</span>
+      </div>
+    </div>
+  );
+}
+
 function RemarkField({
   inputRef,
   disabled,
@@ -1298,12 +1355,19 @@ function SetupGuideModal({
   const steps: Array<{ key: SetupStep; label: string; icon: ReactNode }> = [
     { key: 'person', label: 'Person', icon: <UserRound size={16} /> },
     { key: 'worktime', label: 'Arbeitszeit', icon: <Clock size={16} /> },
+    { key: 'display', label: 'Darstellung', icon: <Eye size={16} /> },
     { key: 'warnings', label: 'Hinweise', icon: <Bell size={16} /> }
   ];
   const [stepIndex, setStepIndex] = useState(0);
   const [draft, setDraft] = useState(settings);
   const step = steps[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
+  const weeklyTargetMinutes = WEEKDAYS.reduce(
+    (sum, day) => sum + (draft.weekdays[day.key].workAllowed ? draft.weekdays[day.key].targetMinutes : 0),
+    0
+  );
+  const weeklyWorkDays = WEEKDAYS.filter((day) => draft.weekdays[day.key].workAllowed).length;
+  const maxDailyTargetMinutes = Math.max(...WEEKDAYS.map((day) => draft.weekdays[day.key].targetMinutes), 1);
 
   useEffect(() => {
     setDraft(settings);
@@ -1373,13 +1437,13 @@ function SetupGuideModal({
               <label>Amt / FB / EB<input value={draft.department} onChange={(event) => update({ department: event.currentTarget.value })} /></label>
               <div className="setup-two-column">
                 <label>Startmonat<input type="month" value={draft.trackingStartMonth} onChange={(event) => update({ trackingStartMonth: event.currentTarget.value || draft.trackingStartMonth, currentWorkMonth: event.currentTarget.value || draft.currentWorkMonth })} /></label>
-                <label>Übertrag Start<DurationSettingInput value={formatMinutes(draft.initialCarryoverMinutes)} onCommit={(value) => update({ initialCarryoverMinutes: parseDuration(value) })} /></label>
+                <label>Übertrag Start<CarryoverSetupControl value={draft.initialCarryoverMinutes} onChange={(value) => update({ initialCarryoverMinutes: value })} /></label>
               </div>
             </div>
           )}
 
           {step.key === 'worktime' && (
-            <div className="setup-pane">
+            <div className="setup-pane setup-worktime-layout">
               <div className="setup-weekdays">
                 {WEEKDAYS.map((day) => (
                   <div className="weekday-row" key={day.key}>
@@ -1391,6 +1455,65 @@ function SetupGuideModal({
                     <label className="check"><input type="checkbox" checked={draft.weekdays[day.key].workAllowed} onChange={(event) => updateWeekday(day.key, { workAllowed: event.currentTarget.checked })} /> erlaubt</label>
                   </div>
                 ))}
+              </div>
+              <aside className="setup-worktime-summary">
+                <span>Gesamtarbeitszeit</span>
+                <strong>{formatMinutes(weeklyTargetMinutes)}</strong>
+                <small>pro Woche bei {weeklyWorkDays} erlaubten Tagen</small>
+                <div className="setup-worktime-bars" aria-hidden="true">
+                  {WEEKDAYS.map((day) => {
+                    const target = draft.weekdays[day.key].workAllowed ? draft.weekdays[day.key].targetMinutes : 0;
+                    const height = weeklyTargetMinutes ? Math.max(8, Math.round((target / maxDailyTargetMinutes) * 58)) : 8;
+                    return (
+                      <div className="setup-worktime-bar" key={day.key}>
+                        <span style={{ height: `${height}px` }} className={target ? '' : 'empty'} />
+                        <small>{day.label}</small>
+                      </div>
+                    );
+                  })}
+                </div>
+              </aside>
+            </div>
+          )}
+
+          {step.key === 'display' && (
+            <div className="setup-pane setup-display-layout">
+              <div className="setup-checks">
+                <label className="check"><input type="checkbox" checked={draft.backgroundEnabled} onChange={(event) => update({ backgroundEnabled: event.currentTarget.checked })} /> Darstellung mit Hintergrund</label>
+                <label className="check"><input type="checkbox" checked={draft.compactTable} onChange={(event) => update({ compactTable: event.currentTarget.checked })} /> Kompakte Tabellendarstellung</label>
+                <label className="check"><input type="checkbox" checked={draft.autoSuggestWorkTimes} onChange={(event) => update({ autoSuggestWorkTimes: event.currentTarget.checked })} /> Wiederkehrende Arbeitszeiten vorschlagen</label>
+                <label>Tabellentransparenz
+                  <input
+                    type="range"
+                    min={TABLE_TRANSPARENCY_MIN_PERCENT}
+                    max={TABLE_TRANSPARENCY_MAX_PERCENT}
+                    step={TABLE_TRANSPARENCY_STEP_PERCENT}
+                    value={tableTransparencyPercent(draft.tableOpacity)}
+                    onChange={(event) => update({ tableOpacity: tableOpacityFromTransparency(Number(event.currentTarget.value)), translucentSurfaces: true })}
+                  />
+                  <span className="slider-scale"><span>deckender</span><span>transparenter</span></span>
+                </label>
+              </div>
+              <div className={`setup-visual-preview ${draft.backgroundEnabled ? 'with-background' : ''} ${draft.compactTable ? 'compact-preview' : ''}`}>
+                <div className="setup-preview-window" style={{ ['--setup-preview-table-opacity' as string]: String(draft.tableOpacity) }}>
+                  <div className="setup-preview-summary">
+                    <strong>Juli 2026</strong>
+                    <span>Soll {formatMinutes(weeklyTargetMinutes)}</span>
+                  </div>
+                  <div className="setup-preview-table">
+                    {['Mo', 'Di', 'Mi'].map((label, index) => (
+                      <div className="setup-preview-row" key={label}>
+                        <span className="setup-preview-weekday">
+                          {label}
+                          {draft.autoSuggestWorkTimes && <b title="Vorschlag"><ArrowRight size={12} /></b>}
+                        </span>
+                        <span>08:00</span>
+                        <span>{index === 2 ? '16:30' : '16:00'}</span>
+                        <span>{index === 2 ? '+00:30' : '+00:00'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1406,7 +1529,6 @@ function SetupGuideModal({
                 <label className="check"><input type="radio" name="setup-rounding-mode" checked={draft.roundingMode === '10'} onChange={() => update({ roundingMode: '10' })} /> Kaufmännisch auf 10 Minuten runden</label>
               </fieldset>
               <label className="check"><input type="checkbox" checked={draft.highlightOpenPlannedDays} onChange={(event) => update({ highlightOpenPlannedDays: event.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
-              <label className="check"><input type="checkbox" checked={draft.autoSuggestWorkTimes} onChange={(event) => update({ autoSuggestWorkTimes: event.currentTarget.checked })} /> Wiederkehrende Arbeitszeiten vorschlagen</label>
               <label className="check"><input type="checkbox" checked={draft.hasCanteenAccess} onChange={(event) => update({ hasCanteenAccess: event.currentTarget.checked })} /> Zugang zu einer Kantine</label>
               <label>PDF-Exportlayout
                 <select value={draft.pdfExportLayout} onChange={(event) => update({ pdfExportLayout: event.currentTarget.value as Settings['pdfExportLayout'] })}>
@@ -1571,6 +1693,17 @@ function SettingsPanel({
         <h2>Darstellung</h2>
         <label className="check"><input type="checkbox" checked={settings.backgroundEnabled} onChange={(e) => update({ backgroundEnabled: e.currentTarget.checked })} /> Hintergrundbild anzeigen</label>
         <label className="check"><input type="checkbox" checked={settings.translucentSurfaces} onChange={(e) => update({ translucentSurfaces: e.currentTarget.checked })} /> Kacheltransparenz aktivieren</label>
+        <label>Tabellentransparenz
+          <input
+            type="range"
+            min={TABLE_TRANSPARENCY_MIN_PERCENT}
+            max={TABLE_TRANSPARENCY_MAX_PERCENT}
+            step={TABLE_TRANSPARENCY_STEP_PERCENT}
+            value={tableTransparencyPercent(settings.tableOpacity)}
+            onChange={(e) => update({ tableOpacity: tableOpacityFromTransparency(Number(e.currentTarget.value)), translucentSurfaces: true })}
+          />
+          <span className="slider-scale"><span>deckender</span><span>transparenter</span></span>
+        </label>
         <label className="check"><input type="checkbox" checked={settings.compactTable} onChange={(e) => update({ compactTable: e.currentTarget.checked })} /> Kompakte Tabellendarstellung</label>
         <label className="check"><input type="checkbox" checked={settings.highlightOpenPlannedDays} onChange={(e) => update({ highlightOpenPlannedDays: e.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
         <label className="check"><input type="checkbox" checked={settings.autoSuggestWorkTimes} onChange={(e) => update({ autoSuggestWorkTimes: e.currentTarget.checked })} /> Wiederkehrende Arbeitszeiten vorschlagen</label>
