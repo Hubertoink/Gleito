@@ -6,6 +6,7 @@ export type RemarkPreset =
   | 'krank'
   | 'Zeitkonto'
   | 'AZVO'
+  | 'Zeitausgleich'
   | 'Ausgleichstag'
   | 'Feiertag'
   | 'Rufbereitschaft';

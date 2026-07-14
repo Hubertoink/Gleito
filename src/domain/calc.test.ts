@@ -98,11 +98,11 @@ describe('month calculation', () => {
     expect(resolved).toBe('2026-06');
   });
 
-  it('treats Ausgleichstag as a minus withdrawal from the overtime account', () => {
+  it('treats Zeitausgleich as a minus withdrawal from the overtime account', () => {
     const settings = defaultSettings();
     settings.trackingStartMonth = '2026-07';
     const result = calculateMonth(
-      [{ ...emptyEntry('2026-07-06'), start: '10:00', end: '18:30', remark: 'Ausgleichstag' }],
+      [{ ...emptyEntry('2026-07-06'), start: '10:00', end: '18:30', remark: 'Zeitausgleich' }],
       settings,
       '2026-07',
       0,

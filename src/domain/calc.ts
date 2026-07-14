@@ -12,7 +12,7 @@ const WEEKDAY_LABELS: Record<WeekdayKey, string> = {
   sat: 'Sa',
   sun: 'So'
 };
-const REMARK_BASES = ['Urlaub', 'krank', 'Zeitkonto', 'AZVO', 'Ausgleichstag', 'Feiertag', 'Rufbereitschaft'];
+const REMARK_BASES = ['Urlaub', 'krank', 'Zeitkonto', 'AZVO', 'Zeitausgleich', 'Ausgleichstag', 'Feiertag', 'Rufbereitschaft'];
 const ABSENCE_REMARKS = new Set(['Zeitkonto', 'AZVO']);
 
 function roundingStep(mode: Settings['roundingMode']): number | null {
@@ -21,7 +21,9 @@ function roundingStep(mode: Settings['roundingMode']): number | null {
 
 export function remarkBase(remark: string): string {
   const trimmed = remark.trim();
-  return REMARK_BASES.find((base) => trimmed === base || trimmed.startsWith(`${base} (`)) ?? trimmed;
+  const matched = REMARK_BASES.find((base) => trimmed === base || trimmed.startsWith(`${base} (`));
+  if (matched === 'Ausgleichstag') return 'Zeitausgleich';
+  return matched ?? trimmed;
 }
 
 export function defaultSettings(): Settings {
@@ -164,7 +166,7 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
   const isWeekend = weekday === 'sat' || weekday === 'sun';
   const weekdaySetting = settings.weekdays[weekday];
   const baseRemark = remarkBase(entry.remark);
-  const isCompDay = baseRemark === 'Ausgleichstag';
+  const isCompDay = baseRemark === 'Zeitausgleich';
   const isVacationDay = baseRemark === 'Urlaub';
   const isSickDay = baseRemark === 'krank';
   const isHolidayRemark = baseRemark === 'Feiertag';

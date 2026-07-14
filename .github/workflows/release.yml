@@ -3,11 +3,12 @@ name: Release
 on:
   push:
     tags:
+      - "v*.*"
       - "v*.*.*"
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Git tag to build and publish, for example v1.1.3"
+        description: "Git tag to build and publish, for example v1.2 or v1.2.0"
         required: true
         type: string
 
@@ -42,6 +43,13 @@ jobs:
       - name: Verify package version matches tag
         run: |
           $tagVersion = $env:RELEASE_TAG.TrimStart('v')
+          if ($tagVersion -notmatch '^\d+\.\d+(\.\d+)?$') {
+            Write-Error "Release tag $env:RELEASE_TAG is not a valid version"
+            exit 1
+          }
+          if ($tagVersion -match '^\d+\.\d+$') {
+            $tagVersion = "$tagVersion.0"
+          }
           $packageVersion = (node -p "require('./package.json').version")
           if ($packageVersion -ne $tagVersion) {
             Write-Error "package.json version $packageVersion does not match release tag $env:RELEASE_TAG"

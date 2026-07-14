@@ -63,7 +63,7 @@ const WEEKDAYS: Array<{ key: WeekdayKey; label: string }> = [
   { key: 'sun', label: 'So' }
 ];
 
-const REMARKS = ['', 'Urlaub', 'krank', 'Zeitkonto', 'Ausgleichstag', 'Feiertag', 'Rufbereitschaft'];
+const REMARKS = ['', 'Urlaub', 'krank', 'Zeitkonto', 'Zeitausgleich', 'Feiertag', 'Rufbereitschaft'];
 const WEEKDAY_KEYS_BY_DATE_INDEX: WeekdayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const SETUP_CARRYOVER_SLIDER_LIMIT_MINUTES = 80 * 60;
 const SETUP_CARRYOVER_SLIDER_STEP_MINUTES = 10;
@@ -455,7 +455,7 @@ export default function App() {
 
   function updateRemark(date: string, remark: string) {
     const patch: Partial<DayEntry> =
-      remarkBase(remark) === 'Ausgleichstag'
+      remarkBase(remark) === 'Zeitausgleich'
         ? { remark, start: '', end: '', pause: '', pauseManual: false, endManual: false }
         : { remark };
     updateEntry(date, patch);

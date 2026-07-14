@@ -43,7 +43,7 @@ function splitSignedMinutes(minutes: number, forceZero = false): { plus: string;
 
 function remarkForCity(day: CalculatedDay): string {
   if (day.holidayName) return day.holidayName;
-  if (remarkBase(day.remark) === 'Ausgleichstag') return day.remark.replace(/^Ausgleichstag/, 'Zeitausgleich');
+  if (remarkBase(day.remark) === 'Zeitausgleich') return day.remark.replace(/^Ausgleichstag/, 'Zeitausgleich');
   return day.remark;
 }
 
@@ -52,7 +52,7 @@ function cityDataRows(days: CalculatedDay[]): string {
     .map((day) => {
       const hasTimeEntry = Boolean(day.start || day.end || day.pause);
       const hasRemark = Boolean(day.remark);
-      const showZeroDuration = hasTimeEntry || remarkBase(day.remark) === 'Ausgleichstag';
+      const showZeroDuration = hasTimeEntry || remarkBase(day.remark) === 'Zeitausgleich';
       const remark = remarkForCity(day);
       return `
         <tr>
@@ -438,7 +438,7 @@ function buildCityPrintHtml(settings: Settings, days: CalculatedDay[], summary: 
             <th class="sub">Soll</th>
             <th class="sub">Plus</th>
             <th class="sub thick-right">Minus</th>
-            <th class="tiny thick-right">(z.B. Urlaub, Krankheit,<br />Zeitausgleich, Ausgleichstag)</th>
+            <th class="tiny thick-right">(z.B. Urlaub, Krankheit,<br />Zeitausgleich)</th>
           </tr>
           <tr>
             <th class="tiny">Std./Min.</th>
