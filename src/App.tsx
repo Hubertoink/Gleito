@@ -1526,7 +1526,7 @@ function SetupGuideModal({
                 <legend>Rundung</legend>
                 <label className="check"><input type="radio" name="setup-rounding-mode" checked={draft.roundingMode === 'none'} onChange={() => update({ roundingMode: 'none' })} /> Keine Rundung</label>
                 <label className="check"><input type="radio" name="setup-rounding-mode" checked={draft.roundingMode === '5'} onChange={() => update({ roundingMode: '5' })} /> Kaufmännisch auf 5 Minuten runden</label>
-                <label className="check"><input type="radio" name="setup-rounding-mode" checked={draft.roundingMode === '10'} onChange={() => update({ roundingMode: '10' })} /> Kaufmännisch auf 10 Minuten runden</label>
+                <label className="check"><input type="radio" name="setup-rounding-mode" checked={draft.roundingMode === '10'} onChange={() => update({ roundingMode: '10' })} /> Auf 10 Minuten runden (0-5 ab, ab 6 auf)</label>
               </fieldset>
               <label className="check"><input type="checkbox" checked={draft.highlightOpenPlannedDays} onChange={(event) => update({ highlightOpenPlannedDays: event.currentTarget.checked })} /> Offene Soll-Tage dezent markieren</label>
               <label className="check"><input type="checkbox" checked={draft.hasCanteenAccess} onChange={(event) => update({ hasCanteenAccess: event.currentTarget.checked })} /> Zugang zu einer Kantine</label>
@@ -1666,7 +1666,7 @@ function SettingsPanel({
           <legend>Rundung</legend>
           <label className="check"><input type="radio" name="settings-rounding-mode" checked={settings.roundingMode === 'none'} onChange={() => update({ roundingMode: 'none' })} /> Keine Rundung</label>
           <label className="check"><input type="radio" name="settings-rounding-mode" checked={settings.roundingMode === '5'} onChange={() => update({ roundingMode: '5' })} /> Kaufmännisch auf 5 Minuten runden</label>
-          <label className="check"><input type="radio" name="settings-rounding-mode" checked={settings.roundingMode === '10'} onChange={() => update({ roundingMode: '10' })} /> Kaufmännisch auf 10 Minuten runden</label>
+          <label className="check"><input type="radio" name="settings-rounding-mode" checked={settings.roundingMode === '10'} onChange={() => update({ roundingMode: '10' })} /> Auf 10 Minuten runden (0-5 ab, ab 6 auf)</label>
         </fieldset>
         <label className="check"><input type="checkbox" checked={settings.hasCanteenAccess} onChange={(e) => update({ hasCanteenAccess: e.currentTarget.checked })} /> Zugang zu einer Kantine</label>
         <label className="check"><input type="checkbox" checked={settings.openLastViewedMonthOnStart} onChange={(e) => update({ openLastViewedMonthOnStart: e.currentTarget.checked, lastViewedMonth: settings.lastViewedMonth || settings.currentWorkMonth })} /> Beim Start zuletzt angesehenen Monat öffnen</label>

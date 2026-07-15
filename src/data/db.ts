@@ -1,5 +1,5 @@
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
-import type { DayEntry, MonthData, Settings } from '../domain/types';
+import type { DayEntry, MonthData, Settings, TrafficThresholds } from '../domain/types';
 import { defaultSettings, normalizeMonthEntries } from '../domain/calc';
 
 const wasmUrl = new URL('sql.js/dist/sql-wasm.wasm', import.meta.url).toString();
@@ -25,18 +25,69 @@ function parseJson<T>(value: string | undefined, fallback: T): T {
 
 type LegacyStoredSettings = Partial<Settings> & { roundToTenMinutes?: boolean };
 
-function mergeSettings(stored: LegacyStoredSettings): Settings {
+const LEGACY_DEFAULT_OVERTIME_LIMIT_MINUTES = 40 * 60;
+const LEGACY_DEFAULT_TRAFFIC_THRESHOLDS: TrafficThresholds = {
+  plusGreenUntilMinutes: 20 * 60,
+  plusYellowUntilMinutes: 40 * 60,
+  plusRedFromMinutes: 60 * 60,
+  minusGreenUntilMinutes: 10 * 60,
+  minusYellowUntilMinutes: 10 * 60,
+  minusRedFromMinutes: 11 * 60
+};
+
+function matchesLegacyPlusThresholds(thresholds: Partial<TrafficThresholds> | undefined): boolean {
+  return (
+    thresholds?.plusGreenUntilMinutes === LEGACY_DEFAULT_TRAFFIC_THRESHOLDS.plusGreenUntilMinutes &&
+    thresholds.plusYellowUntilMinutes === LEGACY_DEFAULT_TRAFFIC_THRESHOLDS.plusYellowUntilMinutes &&
+    thresholds.plusRedFromMinutes === LEGACY_DEFAULT_TRAFFIC_THRESHOLDS.plusRedFromMinutes
+  );
+}
+
+function matchesLegacyMinusThresholds(thresholds: Partial<TrafficThresholds> | undefined): boolean {
+  return (
+    thresholds?.minusGreenUntilMinutes === LEGACY_DEFAULT_TRAFFIC_THRESHOLDS.minusGreenUntilMinutes &&
+    thresholds.minusYellowUntilMinutes === LEGACY_DEFAULT_TRAFFIC_THRESHOLDS.minusYellowUntilMinutes &&
+    thresholds.minusRedFromMinutes === LEGACY_DEFAULT_TRAFFIC_THRESHOLDS.minusRedFromMinutes
+  );
+}
+
+export function mergeSettings(stored: LegacyStoredSettings): Settings {
   const defaults = defaultSettings();
   const { roundToTenMinutes, ...storedSettings } = stored;
   const setupGuideCompleted = stored.setupGuideCompleted ?? Object.keys(stored).length > 0;
   const roundingMode = stored.roundingMode ?? (roundToTenMinutes ? '10' : defaults.roundingMode);
+  const hasLegacyPlusThresholds = matchesLegacyPlusThresholds(stored.trafficThresholds);
+  const hasLegacyMinusThresholds = matchesLegacyMinusThresholds(stored.trafficThresholds);
+  const overtimeLimitMinutes =
+    stored.overtimeLimitMinutes === LEGACY_DEFAULT_OVERTIME_LIMIT_MINUTES && hasLegacyPlusThresholds && hasLegacyMinusThresholds
+      ? defaults.overtimeLimitMinutes
+      : stored.overtimeLimitMinutes ?? defaults.overtimeLimitMinutes;
+  const trafficThresholds = {
+    ...defaults.trafficThresholds,
+    ...stored.trafficThresholds,
+    ...(hasLegacyPlusThresholds
+      ? {
+          plusGreenUntilMinutes: defaults.trafficThresholds.plusGreenUntilMinutes,
+          plusYellowUntilMinutes: defaults.trafficThresholds.plusYellowUntilMinutes,
+          plusRedFromMinutes: defaults.trafficThresholds.plusRedFromMinutes
+        }
+      : {}),
+    ...(hasLegacyMinusThresholds
+      ? {
+          minusGreenUntilMinutes: defaults.trafficThresholds.minusGreenUntilMinutes,
+          minusYellowUntilMinutes: defaults.trafficThresholds.minusYellowUntilMinutes,
+          minusRedFromMinutes: defaults.trafficThresholds.minusRedFromMinutes
+        }
+      : {})
+  };
   return {
     ...defaults,
     ...storedSettings,
+    overtimeLimitMinutes,
     roundingMode,
     setupGuideCompleted,
     weekdays: { ...defaults.weekdays, ...stored.weekdays },
-    trafficThresholds: { ...defaults.trafficThresholds, ...stored.trafficThresholds }
+    trafficThresholds
   };
 }
 

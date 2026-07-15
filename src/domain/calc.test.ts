@@ -21,13 +21,20 @@ describe('holiday generation', () => {
 });
 
 describe('time rules', () => {
-  it('rounds commercially to ten minutes', () => {
+  it('rounds to ten minutes', () => {
     expect(roundClockToTen('08:12')).toBe('08:10');
-    expect(roundClockToTen('08:15')).toBe('08:20');
+    expect(roundClockToTen('08:15')).toBe('08:10');
     expect(roundClockToTen('08:20')).toBe('08:20');
     expect(roundDurationToTen('0:12')).toBe('0:10');
-    expect(roundDurationToTen('0:15')).toBe('0:20');
+    expect(roundDurationToTen('0:15')).toBe('0:10');
     expect(roundDurationToTen('0:20')).toBe('0:20');
+  });
+
+  it('rounds ten-minute values down from 0 to 5 and up from 6', () => {
+    expect(roundClockToTen('08:05')).toBe('08:00');
+    expect(roundClockToTen('08:06')).toBe('08:10');
+    expect(roundDurationToTen('0:25')).toBe('0:20');
+    expect(roundDurationToTen('0:26')).toBe('0:30');
   });
 
   it('rounds commercially to five minutes', () => {
@@ -227,10 +234,32 @@ describe('month calculation', () => {
     settings.minusCountingMode = 'explicit_only';
     settings.trafficThresholds.plusGreenUntilMinutes = 20 * 60;
     settings.trafficThresholds.plusRedFromMinutes = 60 * 60;
+    settings.trafficThresholds.minusRedFromMinutes = 11 * 60;
     let result = calculateMonth([], settings, '2026-07', 30 * 60, true);
     expect(result.summary.trafficLight).toBe('yellow');
     result = calculateMonth([], settings, '2026-07', -(11 * 60), true);
     expect(result.summary.trafficLight).toBe('red');
+  });
+
+  it('uses the default time account limits and traffic thresholds', () => {
+    const settings = defaultSettings();
+
+    expect(settings.overtimeLimitMinutes).toBe(60 * 60);
+    expect(settings.trafficThresholds).toEqual({
+      plusGreenUntilMinutes: 25 * 60,
+      plusYellowUntilMinutes: 40 * 60,
+      plusRedFromMinutes: 41 * 60,
+      minusGreenUntilMinutes: 10 * 60,
+      minusYellowUntilMinutes: 20 * 60,
+      minusRedFromMinutes: 21 * 60
+    });
+
+    expect(calculateMonth([], settings, '2026-07', 25 * 60, true).summary.trafficLight).toBe('green');
+    expect(calculateMonth([], settings, '2026-07', 26 * 60, true).summary.trafficLight).toBe('yellow');
+    expect(calculateMonth([], settings, '2026-07', 41 * 60, true).summary.trafficLight).toBe('red');
+    expect(calculateMonth([], settings, '2026-07', -(10 * 60), true).summary.trafficLight).toBe('green');
+    expect(calculateMonth([], settings, '2026-07', -(11 * 60), true).summary.trafficLight).toBe('yellow');
+    expect(calculateMonth([], settings, '2026-07', -(21 * 60), true).summary.trafficLight).toBe('red');
   });
 
   it('rounds the automatic 45 minute pause to 40 minutes when ten-minute rounding is enabled', () => {

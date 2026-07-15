@@ -22,6 +22,10 @@ export function formatClock(totalMinutes: number): string {
 }
 
 export function roundMinutes(minutes: number, stepMinutes: number): number {
+  if (stepMinutes === 10) {
+    const remainder = minutes % stepMinutes;
+    return remainder <= 5 ? minutes - remainder : minutes + (stepMinutes - remainder);
+  }
   return Math.floor((minutes + stepMinutes / 2) / stepMinutes) * stepMinutes;
 }
 

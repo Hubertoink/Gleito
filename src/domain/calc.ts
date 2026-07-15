@@ -41,15 +41,15 @@ export function defaultSettings(): Settings {
     holidayRegion: 'BW',
     customHolidays: [],
     initialCarryoverMinutes: 0,
-    overtimeLimitMinutes: 40 * 60,
+    overtimeLimitMinutes: 60 * 60,
     minusCountingMode: 'explicit_only',
     trafficThresholds: {
-      plusGreenUntilMinutes: 20 * 60,
+      plusGreenUntilMinutes: 25 * 60,
       plusYellowUntilMinutes: 40 * 60,
-      plusRedFromMinutes: 60 * 60,
+      plusRedFromMinutes: 41 * 60,
       minusGreenUntilMinutes: 10 * 60,
-      minusYellowUntilMinutes: 10 * 60,
-      minusRedFromMinutes: 11 * 60
+      minusYellowUntilMinutes: 20 * 60,
+      minusRedFromMinutes: 21 * 60
     },
     backgroundEnabled: true,
     translucentSurfaces: true,
