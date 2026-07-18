@@ -64,12 +64,53 @@ const WEEKDAYS: Array<{ key: WeekdayKey; label: string }> = [
 ];
 
 const REMARKS = ['', 'Urlaub', 'krank', 'Zeitkonto', 'Zeitausgleich', 'Feiertag', 'Rufbereitschaft'];
+const YEARLY_REMARK_STATUSES = [
+  { value: 'Urlaub', label: 'Urlaub' },
+  { value: 'krank', label: 'Krankheit' },
+  { value: 'Zeitkonto', label: 'Zeitkonto' },
+  { value: 'Zeitausgleich', label: 'Zeitausgleich' },
+  { value: 'Feiertag', label: 'Feiertag' },
+  { value: 'Rufbereitschaft', label: 'Rufbereitschaft' }
+] as const;
 const WEEKDAY_KEYS_BY_DATE_INDEX: WeekdayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const SETUP_CARRYOVER_SLIDER_LIMIT_MINUTES = 80 * 60;
 const SETUP_CARRYOVER_SLIDER_STEP_MINUTES = 10;
 const TABLE_TRANSPARENCY_MIN_PERCENT = 2;
 const TABLE_TRANSPARENCY_MAX_PERCENT = 40;
 const TABLE_TRANSPARENCY_STEP_PERCENT = 2;
+
+type YearlyRemarkStatistic = {
+  value: (typeof YEARLY_REMARK_STATUSES)[number]['value'];
+  label: string;
+  days: number;
+};
+
+function calculateYearlyRemarkStatistics(db: AppDatabase | null, monthKeys: string[]): Record<string, YearlyRemarkStatistic[]> {
+  if (!db) return {};
+  const statuses = new Map(YEARLY_REMARK_STATUSES.map((status) => [status.value, status]));
+  const totals = new Map<string, Map<YearlyRemarkStatistic['value'], number>>();
+
+  for (const monthKey of monthKeys) {
+    const year = monthKey.slice(0, 4);
+    const yearTotals = totals.get(year) ?? new Map<YearlyRemarkStatistic['value'], number>();
+    totals.set(year, yearTotals);
+    for (const entry of db.loadMonth(monthKey).days) {
+      const baseRemark = remarkBase(entry.remark) as YearlyRemarkStatistic['value'];
+      if (!statuses.has(baseRemark)) continue;
+      yearTotals.set(baseRemark, (yearTotals.get(baseRemark) ?? 0) + 1);
+    }
+  }
+
+  return Object.fromEntries(
+    Array.from(totals, ([year, yearTotals]) => [
+      year,
+      YEARLY_REMARK_STATUSES.map((status) => ({
+        ...status,
+        days: yearTotals.get(status.value) ?? 0
+      }))
+    ])
+  );
+}
 
 function minutesInput(minutes: number): string {
   return formatMinutes(minutes).padStart(5, '0');
@@ -245,6 +286,10 @@ export default function App() {
   const calculated = useMemo(
     () => calculateMonth(entries, settings, activeMonth, carryIn, editable),
     [entries, settings, activeMonth, carryIn, editable]
+  );
+  const yearlyRemarkStatistics = useMemo(
+    () => calculateYearlyRemarkStatistics(db, storedMonthKeys),
+    [db, storedMonthKeys, entries]
   );
   const workTimeSuggestions = useMemo(
     () =>
@@ -787,6 +832,8 @@ export default function App() {
       {view === 'settings' ? (
         <SettingsPanel
           settings={settings}
+          activeYear={activeMonth.slice(0, 4)}
+          yearlyRemarkStatistics={yearlyRemarkStatistics}
           appVersion={appVersion}
           updateStatus={updateStatus}
           onChange={saveSettings}
@@ -1297,14 +1344,31 @@ function RemarkField({
       ref={wrapperRef}
       className={`remark-field ${open ? 'open' : ''}`}
     >
-      <input
-        ref={inputRef}
-        disabled={disabled}
-        value={value}
-        placeholder={placeholder}
-        onFocus={() => setOpen(false)}
-        onChange={(event) => onChange(event.currentTarget.value)}
-      />
+      <div className="remark-input-wrap">
+        <input
+          ref={inputRef}
+          disabled={disabled}
+          value={value}
+          placeholder={placeholder}
+          onFocus={() => setOpen(false)}
+          onChange={(event) => onChange(event.currentTarget.value)}
+        />
+        {value && !disabled && (
+          <button
+            type="button"
+            className="remark-clear-button"
+            aria-label="Bemerkung leeren"
+            title="Bemerkung leeren"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              onChange('');
+              setOpen(false);
+            }}
+          >
+            <X size={13} />
+          </button>
+        )}
+      </div>
       <button
         type="button"
         className="remark-toggle"
@@ -1552,6 +1616,8 @@ function SetupGuideModal({
 
 function SettingsPanel({
   settings,
+  activeYear,
+  yearlyRemarkStatistics,
   appVersion,
   updateStatus,
   onChange,
@@ -1562,6 +1628,8 @@ function SettingsPanel({
   onResetAllData
 }: {
   settings: Settings;
+  activeYear: string;
+  yearlyRemarkStatistics: Record<string, YearlyRemarkStatistic[]>;
   appVersion: string;
   updateStatus: UpdateStatusPayload | null;
   onChange: (settings: Settings) => Promise<void>;
@@ -1572,6 +1640,11 @@ function SettingsPanel({
   onResetAllData: () => void | Promise<void>;
 }) {
   const [showTrafficSettings, setShowTrafficSettings] = useState(false);
+  const availableStatisticYears = Array.from(
+    new Set([activeYear, settings.trackingStartMonth.slice(0, 4), ...Object.keys(yearlyRemarkStatistics)])
+  ).sort((left, right) => right.localeCompare(left));
+  const [statisticYear, setStatisticYear] = useState(activeYear);
+  const statistics = yearlyRemarkStatistics[statisticYear] ?? YEARLY_REMARK_STATUSES.map((status) => ({ ...status, days: 0 }));
 
   function update(patch: Partial<Settings>) {
     void onChange({ ...settings, ...patch });
@@ -1687,6 +1760,26 @@ function SettingsPanel({
           />
         </label>
         <p className="hint"><Save size={14} /> Änderungen werden automatisch gespeichert.</p>
+      </div>
+
+      <div className="panel yearly-statistics-panel">
+        <div className="panel-heading-row">
+          <h2>Jahresstatistik</h2>
+          <label className="statistic-year-select">
+            <select aria-label="Statistikjahr" value={statisticYear} onChange={(event) => setStatisticYear(event.currentTarget.value)}>
+              {availableStatisticYears.map((year) => <option value={year} key={year}>{year}</option>)}
+            </select>
+          </label>
+        </div>
+        <p className="hint">Erfasste Tage nach Bemerkung.</p>
+        <div className="yearly-statistics" aria-label={`Jahresstatistik ${statisticYear}`}>
+          {statistics.map((statistic) => (
+            <div className="yearly-statistic" key={statistic.value}>
+              <span>{statistic.label}</span>
+              <strong>{statistic.days} {statistic.days === 1 ? 'Tag' : 'Tage'}</strong>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="panel">

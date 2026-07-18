@@ -714,6 +714,46 @@ h2 {
   gap: 6px;
 }
 
+.remark-input-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.remark-input-wrap input {
+  width: 100%;
+}
+
+.remark-clear-button {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 14px;
+  width: 14px;
+  min-height: 14px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #d92c20;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.remark-field:hover .remark-clear-button,
+.remark-field:focus-within .remark-clear-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.remark-clear-button:hover,
+.remark-clear-button:focus-visible {
+  border: 0;
+  background: transparent;
+  color: #b91f16;
+}
+
 .remark-toggle {
   min-height: 30px;
   padding: 0;
@@ -1271,6 +1311,50 @@ h2 {
   border: 1px solid #d2d1c8;
   border-radius: 6px;
   padding: 18px;
+}
+
+.panel-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-heading-row h2 {
+  margin-bottom: 14px;
+}
+
+.panel .statistic-year-select {
+  display: block;
+  margin: 0 0 14px;
+}
+
+.statistic-year-select select {
+  min-height: 30px;
+  padding: 4px 28px 4px 8px;
+}
+
+.yearly-statistics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.yearly-statistic {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid #ddd8ca;
+  border-radius: 6px;
+  background: #faf8f1;
+  color: #626057;
+  font-size: 13px;
+}
+
+.yearly-statistic strong {
+  color: #20201d;
+  font-size: 16px;
 }
 
 .panel label {
