@@ -210,6 +210,32 @@ describe('month calculation', () => {
     expect(result.summary.plusMinutes).toBe(0);
   });
 
+  it('allows one-off overrides for weekdays blocked in the weekly schedule', () => {
+    const settings = defaultSettings();
+    settings.trackingStartMonth = '2026-07';
+    settings.weekdays.fri.workAllowed = false;
+    settings.weekdays.wed.workAllowed = false;
+    const result = calculateMonth(
+      [
+        { ...emptyEntry('2026-07-03'), start: '10:00', end: '18:30', workAllowedOverride: true },
+        { ...emptyEntry('2026-07-01'), start: '10:00', end: '18:30', workAllowedOverride: true }
+      ],
+      settings,
+      '2026-07',
+      0,
+      true
+    );
+    const friday = result.days.find((entry) => entry.date === '2026-07-03');
+    const wednesday = result.days.find((entry) => entry.date === '2026-07-01');
+
+    expect(friday?.workAllowed).toBe(true);
+    expect(friday?.targetMinutes).toBe(settings.weekdays.fri.targetMinutes);
+    expect(friday?.actualMinutes).toBe(8 * 60);
+    expect(wednesday?.workAllowed).toBe(true);
+    expect(wednesday?.targetMinutes).toBe(settings.weekdays.wed.targetMinutes);
+    expect(wednesday?.actualMinutes).toBe(8 * 60);
+  });
+
   it('can ignore untouched target days in explicit-only minus mode', () => {
     const settings = defaultSettings();
     settings.trackingStartMonth = '2026-07';

@@ -172,7 +172,7 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
   const isHolidayRemark = baseRemark === 'Feiertag';
   const hasAbsenceRemark = ABSENCE_REMARKS.has(baseRemark);
   const holidayBlocksTarget = Boolean(holidayName) || isHolidayRemark;
-  const workAllowed = weekdaySetting.workAllowed;
+  const workAllowed = weekdaySetting.workAllowed || entry.workAllowedOverride === true;
   const beforeTrackingStart = entryMonthKey < settings.trackingStartMonth;
   const targetMinutes = beforeTrackingStart || !workAllowed || hasAbsenceRemark || holidayBlocksTarget ? 0 : weekdaySetting.targetMinutes;
   const start = parseTime(entry.start);
@@ -217,7 +217,8 @@ export function calculateDay(entry: DayEntry, settings: Settings, editable: bool
     plusMinutes,
     minusMinutes,
     warnings,
-    editable
+    editable,
+    workAllowed
   };
 }
 

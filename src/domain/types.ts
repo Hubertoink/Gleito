@@ -92,6 +92,8 @@ export interface DayEntry {
   pauseManual: boolean;
   endManual: boolean;
   remark: string;
+  /** Allows a normally blocked weekday to be used for a one-off assignment. */
+  workAllowedOverride?: boolean;
 }
 
 export interface CalculatedDay extends DayEntry {
@@ -104,6 +106,7 @@ export interface CalculatedDay extends DayEntry {
   minusMinutes: number;
   warnings: string[];
   editable: boolean;
+  workAllowed: boolean;
 }
 
 export interface MonthSummary {

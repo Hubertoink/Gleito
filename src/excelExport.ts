@@ -105,12 +105,11 @@ function netMinutes(day: CalculatedDay): number {
   return Math.max(0, interval.end - interval.start - pause);
 }
 
-function isFullTime(settings: Settings): boolean {
-  const weeklyTargetMinutes = Object.values(settings.weekdays).reduce(
-    (sum, day) => sum + (day.workAllowed ? day.targetMinutes : 0),
-    0
-  );
-  return weeklyTargetMinutes === 39 * 60;
+function mealAllowanceFactor(settings: Settings): number {
+  const weeklyWorkDays = Object.values(settings.weekdays).filter((day) => day.workAllowed && day.targetMinutes > 0).length;
+  if (weeklyWorkDays >= 5) return 1;
+  if (weeklyWorkDays === 4) return 0.5;
+  return 0;
 }
 
 function bridgesLunchWindow(day: CalculatedDay): boolean {
@@ -120,8 +119,9 @@ function bridgesLunchWindow(day: CalculatedDay): boolean {
 }
 
 function mealAllowanceValue(day: CalculatedDay, workMinutes: number, settings: Settings): number {
-  if (settings.hasCanteenAccess || !isFullTime(settings)) return 0;
-  if (workMinutes >= 6 * 60 && bridgesLunchWindow(day)) return 1;
+  const allowanceFactor = mealAllowanceFactor(settings);
+  if (settings.hasCanteenAccess || allowanceFactor === 0 || !day.workAllowed) return 0;
+  if (workMinutes >= 6 * 60 && bridgesLunchWindow(day)) return allowanceFactor;
   if (workMinutes > 0 && workMinutes < 6 * 60) return 0.5;
   return 0;
 }

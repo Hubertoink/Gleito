@@ -254,6 +254,29 @@ h2 {
   background: #f0efe9;
 }
 
+.export-menu button.forderungs-export-button {
+  background: #e3f1e2;
+  color: #245b2a;
+  font-weight: 600;
+}
+
+.export-menu button.forderungs-export-button:hover,
+.export-menu button.forderungs-export-button:focus-visible {
+  background: #cfe7ce;
+  color: #1b4820;
+}
+
+.export-menu button.pdf-export-button {
+  background: #f8e4e1;
+  color: #7b3028;
+}
+
+.export-menu button.pdf-export-button:hover,
+.export-menu button.pdf-export-button:focus-visible {
+  background: #f0cfca;
+  color: #63231d;
+}
+
 .month-switcher-menu button:hover {
   background: rgba(255, 255, 255, 0.1);
 }
@@ -682,6 +705,33 @@ h2 {
 
 .suggestion-button:hover,
 .suggestion-button:focus-visible {
+  border-color: #9a978d;
+  background: #e4e2da;
+  color: #2f2e2a;
+}
+
+.workday-override-button {
+  min-width: 20px;
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  padding: 0;
+  border-color: #d4d2ca;
+  background: #efeee8;
+  color: #77746b;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.weekday-cell:hover .workday-override-button,
+.weekday-cell:focus-within .workday-override-button,
+.workday-override-button:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.workday-override-button:hover,
+.workday-override-button:focus-visible {
   border-color: #9a978d;
   background: #e4e2da;
   color: #2f2e2a;

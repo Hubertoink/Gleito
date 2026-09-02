@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Archive, ArrowLeft, ArrowRight, Bell, CalendarDays, CheckCircle2, ChevronDown, Clock, Download, Eye, FileSpreadsheet, FileText, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, UserRound, X } from 'lucide-react';
+import { AlertTriangle, Archive, ArrowLeft, ArrowRight, Bell, CalendarDays, CheckCircle2, ChevronDown, Clock, Download, Eye, FileSpreadsheet, FileText, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, Unlock, UserRound, X } from 'lucide-react';
 import type { AppDatabase } from './data/db';
 import { openDatabase } from './data/db';
 import {
@@ -486,15 +486,28 @@ export default function App() {
 
   function isEntryAllowed(date: string) {
     const day = calculated.days.find((item) => item.date === date);
-    return day ? settings.weekdays[day.weekday].workAllowed : true;
+    return day ? day.workAllowed : true;
   }
 
   function updateEntry(date: string, patch: Partial<DayEntry>) {
     if (!editable) return;
-    if (!isEntryAllowed(date)) return;
+    const isWorkAllowedOverridePatch = Object.prototype.hasOwnProperty.call(patch, 'workAllowedOverride');
+    if (!isEntryAllowed(date) && !isWorkAllowedOverridePatch) return;
     const next = normalizeMonthEntries(entries, activeMonth).map((entry) =>
       entry.date === date ? { ...entry, ...patch } : entry
     );
+    void saveEntries(next);
+  }
+
+  function toggleWorkdayOverride(date: string) {
+    if (!editable) return;
+    const day = calculated.days.find((item) => item.date === date);
+    if (!day || settings.weekdays[day.weekday].workAllowed) return;
+    const next = normalizeMonthEntries(entries, activeMonth).map((entry) => {
+      if (entry.date !== date) return entry;
+      if (entry.workAllowedOverride) return { ...entry, workAllowedOverride: undefined };
+      return { ...entry, workAllowedOverride: true };
+    });
     void saveEntries(next);
   }
 
@@ -814,13 +827,13 @@ export default function App() {
             </button>
             {exportMenuOpen && (
               <div className="export-menu">
-                <button type="button" onClick={() => void exportPdf('gleito')}>
+                <button type="button" className="pdf-export-button" onClick={() => void exportPdf('gleito')}>
                   <FileText size={16} /> PDF Gleito
                 </button>
-                <button type="button" onClick={() => void exportPdf('stadt-mannheim')}>
+                <button type="button" className="pdf-export-button" onClick={() => void exportPdf('stadt-mannheim')}>
                   <FileText size={16} /> PDF Stadt Mannheim
                 </button>
-                <button type="button" onClick={() => void exportForderungsnachweis()}>
+                <button type="button" className="forderungs-export-button" onClick={() => void exportForderungsnachweis()}>
                   <FileSpreadsheet size={16} /> Ford. Excel
                 </button>
               </div>
@@ -892,8 +905,9 @@ export default function App() {
               </thead>
               <tbody>
                 {calculated.days.map((day) => {
-                  const entryAllowed = settings.weekdays[day.weekday].workAllowed;
+                  const entryAllowed = day.workAllowed;
                   const entryDisabled = !editable || !entryAllowed;
+                  const canToggleWorkday = editable && !settings.weekdays[day.weekday].workAllowed;
                   const suggestion = workTimeSuggestions.get(day.date);
                   return (
                   <tr
@@ -912,6 +926,17 @@ export default function App() {
                     <td>
                       <span className="weekday-cell">
                         <span>{day.weekdayLabel}</span>
+                        {canToggleWorkday && (
+                          <button
+                            type="button"
+                            className="workday-override-button"
+                            onClick={() => toggleWorkdayOverride(day.date)}
+                            aria-label={entryAllowed ? `${day.weekdayLabel} für diesen Tag wieder sperren` : `${day.weekdayLabel} für diesen Tag freischalten`}
+                            title={entryAllowed ? `${day.weekdayLabel} für diesen Tag sperren` : `${day.weekdayLabel} für diesen Tag freischalten`}
+                          >
+                            {entryAllowed ? <Lock size={13} /> : <Unlock size={13} />}
+                          </button>
+                        )}
                         {suggestion && !entryDisabled && (
                           <button
                             type="button"
