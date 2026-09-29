@@ -266,6 +266,7 @@ export default function App() {
   const manualUpdateCheckRef = useRef(false);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const monthMenuRef = useRef<HTMLDivElement | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const todayMonth = keyForDate(new Date());
   const todayDateKey = new Date().toISOString().slice(0, 10);
@@ -374,6 +375,19 @@ export default function App() {
       document.removeEventListener('mousedown', handlePointerDown);
     };
   }, [monthMenuOpen]);
+
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (exportMenuRef.current?.contains(target)) return;
+      setExportMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [exportMenuOpen]);
 
   useEffect(() => {
     if (!window.gleito) return;
@@ -813,7 +827,7 @@ export default function App() {
           <button className={view === 'settings' ? 'active' : ''} onClick={() => setView('settings')} title="Einstellungen">
             <SettingsIcon size={18} /> Einstellungen
           </button>
-          <div className="export-split">
+          <div className="export-split" ref={exportMenuRef}>
             <button className="export-main-button" onClick={() => void exportPdf()} title="Exportieren">
               <Download size={18} /> Export
             </button>
