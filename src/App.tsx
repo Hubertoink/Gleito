@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Archive, ArrowLeft, ArrowRight, Bell, CalendarDays, CheckCircle2, ChevronDown, Clock, Download, Eye, FileSpreadsheet, FileText, Lock, Save, Settings as SettingsIcon, SlidersHorizontal, Unlock, UserRound, X } from 'lucide-react';
 import type { AppDatabase } from './data/db';
@@ -587,6 +587,8 @@ export default function App() {
   }
 
   function handlePauseBlur(entry: DayEntry, value: string) {
+    // Merely tabbing through the calculated pause must keep it automatic.
+    if (!entry.pauseManual) return;
     const step = roundingStep(settings.roundingMode);
     const rounded = step ? roundDuration(value, step) : value;
     updateEntry(entry.date, { pause: rounded, pauseManual: Boolean(rounded) });
@@ -1023,7 +1025,7 @@ export default function App() {
                           className="duration"
                           value={day.pause}
                           placeholder="auto"
-                          onChange={(event) => updateEntry(day.date, { pause: event.currentTarget.value, pauseManual: true })}
+                          onChange={(event) => updateEntry(day.date, { pause: event.currentTarget.value, pauseManual: Boolean(event.currentTarget.value) })}
                           onBlur={(event) => handlePauseBlur(day, event.currentTarget.value)}
                           onKeyDown={(event) => {
                             if (event.key === 'Tab' && !event.shiftKey) {
@@ -1351,7 +1353,7 @@ function RemarkField({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     const updatePosition = () => {
       const rect = wrapperRef.current?.getBoundingClientRect();
